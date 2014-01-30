@@ -2053,12 +2053,6 @@ OrderedGroup {
 										DEF DETECTED_SHARE_SW Switch {
 											whichChoice 0
 											choice [
-												DEF SHARE_BUTTON BUTTON {
-													Transform2D_translation 210 -335
-													Rectangle_size	55 55
-													ImageTexture_BackImage "46"
-													ImageTexture_OverImage "47"
-												}
 												Transform2D {
 													translation 190 -335
 													children [
@@ -2545,7 +2539,6 @@ OrderedGroup {
 			eventIn SFBool 	    collectLove
 			eventIn SFTime		collectTimerCycle
 			eventIn SFBool		hideLoovInfo
-			eventIn SFBool		doShare
 			eventIn SFBool		internetConnection
 			eventIn SFBool		showStockPage
 
@@ -2597,12 +2590,11 @@ OrderedGroup {
 					MAP_VIEW			= 1;
 					HELP_VIEW			= 2;
 					STOCK_VIEW			= 3;
+					xmlhttp				= new XMLHttpRequest();
                     playerAround        = false;
 					# the base address where all requests go
-					mmwBaseAddress		= 'http://www.mymultimediaworld.com/games/brevets/';
-					xmlhttp				= new XMLHttpRequest();
 					username 			= 'default';
-				#	username 			= checkUser();
+					#username 			= checkUser();
 					
 					R 					= 6371000;
 					mapCenter 			= new SFVec2f (48.625236, 2.442196);
@@ -2818,11 +2810,7 @@ OrderedGroup {
 				
 				function internetConnection(val) {
 					hasInternet = val;
-					if (hasInternet) {
-						if (userLoovCnt == defaultValue | userVisited == defaultValue) {
-							getUserProgress(username);
-						}
-						
+					if (hasInternet) {	
 						if (error_text.Text_string[0] == checkInternetMsg) {
 							tsTextSize.startTime = gpac.get_scene_time();
 							error_text.Text_string[0] = keepSearchingMsg;
@@ -2831,56 +2819,13 @@ OrderedGroup {
 					}
 				}
 				
-				function doShare() {
-					gpac.setOption('ACTION_SEND', shareMsg, '');
-				}
+			
 # Check if the user already exists in the DB (based on his randomly generated ID)
 # and get his progress: number of loovs + parts visited (IDs)
 # otherwise store the user (the ID) in the DB		
-				function checkUser() {
-					usr = gpac.getOption('LOOV', 'username1');
-					# if the user is new, set the username variable in config
-					if (usr == '') {
-						usr = Math.random().toString(36).substr(2, 4);
-						gpac.setOption('LOOV', 'username1', usr);
-					#	storeUser(usr);
-						# and create a new Player instance
-						p = new Player(usr, 0, new Array(), new Array(), 100);
-						displayUserScoreInfo();
-					}
-					else {
-					#	getUserProgress(usr);
-					}
-					# set the ID on the Help page
-					yourID.Text_string = new MFString (' '+usr);
-					return usr;
-				}
 				
-# if the user is known get his progress: loov count and visited parts
-				function getUserProgress(name) {
-					# set 'userLoovCnt' variable when the answer is recieved
-				#	getUserLoovs(name);
-					# set 'userVisited'
-				#	getUserVisited(name);
-				}
 				
-# server request -> get user loovs
-				function getUserLoovs(name) {
-					xmlhttp_userLoov=new XMLHttpRequest();
-					xmlhttp_userLoov.onreadystatechange = getMMWUserLoovs;
-					xmlhttp_userLoov.open('GET', mmwBaseAddress+'getUserCollectedCount/'+name+'/', true);
-					xmlhttp_userLoov.send();
-				}
-				function getMMWUserLoovs() {
-					if (xmlhttp_userLoov.readyState==4 && xmlhttp_userLoov.status==200) {
-						userLoovCnt = parseFloat(parseInt(xmlhttp_userLoov.responseText));
-						if (userVisited != defaultValue) {
-							p = new Player(username, userLoovCnt, userVisited, userGuns, userHp);
-							displayUserScoreInfo();
-							updateStockPage();
-						}
-					}
-				}
+
 				
 # if the user played before (has already some loovs)
 # display the sliding loov info with the current number of loovs
@@ -2889,39 +2834,8 @@ OrderedGroup {
 					loov_info.translation = new SFVec2f (250,0);
 					loovInfoHidden(false);
 				}
-				
-# server request -> get visited parts
-				function getUserVisited(name) {
-					xmlhttp_userVisited=new XMLHttpRequest();
-					xmlhttp_userVisited.onreadystatechange = getMMWUserVisited;
-					xmlhttp_userVisited.open('GET', mmwBaseAddress+'getUserVisited/'+name+'/', true);
-					xmlhttp_userVisited.send();
-				}
-				function getMMWUserVisited() {
-					if (xmlhttp_userVisited.readyState==4 && xmlhttp_userVisited.status==200) {
-						userVisited = xmlhttp_userVisited.responseText;
-						if (userLoovCnt != defaultValue) {
-							p = new Player(username, userLoovCnt, userVisited, userGuns, userHp);
 
-							displayUserScoreInfo();
-							updateStockPage();
-						}
-					}
-				}
 				
-# if the user doesn't exist (first time player)
-# send the username to the DB
-				function storeUser(name) {
-					xmlhttp=new XMLHttpRequest();
-					xmlhttp.onreadystatechange = addMMWUser;
-					xmlhttp.open('GET', mmwBaseAddress+'createUser/'+name+'/', true);
-					xmlhttp.send();
-				}
-				function addMMWUser() {
-					if (xmlhttp.readyState==4 && xmlhttp.status==200) {
-						userInserted = xmlhttp.responseText;
-					}
-				}
 #
 # CITY, PLAYER, PRODUCT CLASSES ################################################################
 #
@@ -3138,8 +3052,6 @@ OrderedGroup {
 					playAudioClickButton();
 					# play sliding score sound
 					audioSlidingScore.A_START_TIME = gpac.get_scene_time() + 0.2;
-					# send mmw request -> set visited
-					setUserVisited();
 					# hide last image detected
 					detectedImage('');
 					# hide collect button
@@ -3203,19 +3115,6 @@ OrderedGroup {
 				
 				function showStockPage() {
 					userIDPageSW.whichChoice = 0;
-				}
-
-# MMW request: send the visited city to MMW DB
-				function setUserVisited() {
-					xmlhttp=new XMLHttpRequest();
-					xmlhttp.onreadystatechange = setMMWUserVisited;
-					xmlhttp.open('GET', mmwBaseAddress+'setUserVisited/'+username+'/'+detectedPart.partID+'/', true);
-					xmlhttp.send();
-				}
-				function setMMWUserVisited() {
-					if (xmlhttp.readyState==4 && xmlhttp.status==200) {
-						mmwUserVisited = xmlhttp.responseText;
-					}
 				}
 				
 # an image has been recongnized
@@ -3612,7 +3511,6 @@ ROUTE SCRIPT.gameOver TO SCRIPT.gameResult
 ROUTE EXPLOSION_TIMER.fraction_changed TO SCRIPT.hideExplosion
 
 
-ROUTE SHARE_BUTTON.onClick TO SCRIPT.doShare
 ROUTE INTERNET_INSTANCE.internet TO SCRIPT.internetConnection
 AT 0 {
 	UPDATE OD [
