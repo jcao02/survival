@@ -2250,7 +2250,7 @@ OrderedGroup {
 															Layout_size 400 100
 															FontStyle_size 24
 															Material2D_emissiveColor 1 1 1
-															Text_string "You don't have any brevets yet."
+															Text_string "You don't have any gun yet."
 														}
 														DEF STOCK_ITEMS OrderedGroup {
 															children [
@@ -2819,15 +2819,15 @@ OrderedGroup {
 				
 				function setDefaultMessages() {
 					# default messages
-					dejaCollecteMsg 	= 'Vous avez déjà obtenu ce brevet!';
-					startMsg			= 'Commencez à chercher les brevets!';
-					foundLoovMsg		= ' brevet autour de vous. Appuyez sur le parchemin.';
-					wantMoreMsg			= 'Voulez-vous plus des brevets? Cherchez encore!';
-					ranOutMsg			= 'Il n\'y a plus des brevets disponibles ici.';
-					keepSearchingMsg	= 'Cherchez une autre photo...';
+					dejaCollecteMsg 	= 'You have already scanned that!';
+					startMsg			= 'Start looking for guns now!';
+					foundLoovMsg		= ' Guns around you! Click on the collecting hand.';
+					wantMoreMsg			= 'You want to survive! keep searching';
+					ranOutMsg			= 'No more guns here...!';
+					keepSearchingMsg	= 'Look for another picture..';
 					shareMsg			= 'Je viens de découvrir AR Brevet, www.mymultimediaworld.com/games/';
-					noInternetMsg		= 'Vous n\'avez pas de connexion Internet!';
-					checkInternetMsg	= 'Vérifiez votre connexion internet!'; 
+					noInternetMsg		= 'You don\'t have any internet connection!';
+					checkInternetMsg	= 'Check you internet connection!'; 
 				}
 				
 				function internetConnection(val) {
@@ -3103,9 +3103,9 @@ OrderedGroup {
 					hideCollectButton(ts);
 					loovCntSw.whichChoice = 0;
 					# change LOOV INFO text
-					loov_count_info.children[0].geometry.string[0] 	= 'Vous avez';
-					loov_count_info.children[0].geometry.string[1]  = 'déjà collecté';
-					loov_count_info.children[0].geometry.string[2]  = '       Brevets!';
+					loov_count_info.children[0].geometry.string[0] 	= 'You have';
+					loov_count_info.children[0].geometry.string[1]  = 'already collected';
+					loov_count_info.children[0].geometry.string[2]  = '       parts of guns!';
 					loov_count_info.children[0].geometry.fontStyle.size 	= 16;
 					loov_count_info.translation 	= new SFVec2f (-50, 8);
 					loov_count_info.children[0].appearance.material.emissiveColor 	= new SFColor (1, 1, 1);
@@ -3143,14 +3143,14 @@ OrderedGroup {
 # each time a user collects a Brevet, update the Stock page
 				function updateStockPage() {
 					if (p.loovs == 0) {
-						stockPageMessage.Text_string[0] = 'Vous n\'avez pas encore collecté de brevets!';
+						stockPageMessage.Text_string[0] = 'You have not yet collected guns!';
 						return;
 					}
 					else if (p.loovs < 5) {
-						stockPageMessage.Text_string[0] = 'Ceux-ci sont les brevets que vous détenez maintenant (' + p.loovs + '):';
+						stockPageMessage.Text_string[0] = 'These are the guns that you have now (' + p.loovs + '):';
 					}
 					else if (p.loovs >= 5) {
-						stockPageMessage.Text_string[0] = 'Félicitations! Maintenant vous pouvez participer au tirage au sort!';
+						stockPageMessage.Text_string[0] = 'Congratulations! you may survive';
 						showUserIDPage();
 					}
 					for (i = 0; i < p.visited.length; i++) {
