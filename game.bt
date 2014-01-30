@@ -2046,7 +2046,7 @@ OrderedGroup {
 										DEF RS REFERENCE_SIGNAL {
 											enabled FALSE
 											source ["hw://camera"]
-											referenceResources ["301", "302", "303", "304", "305", "306", "307", "308", "309", "310"]
+											referenceResources ["301", "302", "303", "304", "305", "306"]
 										}
 										USE AR_VIEW_INSTANCE
 										# display detected image (thumbnail)
@@ -2393,8 +2393,8 @@ OrderedGroup {
                         DEF TIMER_1 TimeSensor {
                             loop TRUE
                             enabled FALSE
-                            #stopTime 90
-                            stopTime 5
+                            stopTime 90
+                            #stopTime 5
                         }
                         DEF TIMER_1_TEXT TEXT {
                             Transform2D_translation 0 300
@@ -2533,8 +2533,8 @@ OrderedGroup {
 			field SFNode userIDPageSW		USE USER_ID_PAGE_SW
 			field SFNode loovCntSw			USE LOOV_CNT_SW
             field SFNode tab_view           USE TAB_VIEW 
-            #field SFInt32 clock            90
-            field SFInt32 clock             5
+            field SFInt32 clock            90
+            #field SFInt32 clock             5
 			field SFNode monsterTimer		USE MONSTER_TIMER
 			
 			eventIn	SFVec3f	    updateOrientation
@@ -3061,19 +3061,40 @@ OrderedGroup {
 
 
                 }
-
+                function contains(array, name){
+                	doesContain=false;
+                	for (var i=0; i<array.length; i++){
+                		if (array[i].name==name){
+                			return true;
+                		}
+                	}
+                	return doesContain;
+                }
                # on COLLECT BUTTON click
 				function collectLove(val, ts) {
 					# store the visited city in the player object
 					p.visited.push(detectedPart.partID);
 					if((p.visited.indexOf('301')!=-1) && (p.visited.indexOf('302')!=-1)){
-						p.guns.push(new Weapon('minigun', 100, 25));
+						#if(!contains(p.guns,'minigun')){
+							p.guns.push(new Weapon('minigun', 100, 25));
+							print('=============================I am supposed to add a AR minigun===================');
+							addNewARObject(0,deviceOrientation);
+						#}
 					}
 					if((p.visited.indexOf('303')!=-1) && (p.visited.indexOf('304')!=-1)){
-						p.guns.push(new Weapon('gun', 30, 50));
+						#if(!contains(p.guns,'gun')){
+							p.guns.push(new Weapon('gun', 30, 50));
+							p.current++;
+							addNewARObject(1,deviceOrientation);
+
+							print('=============================I am supposed to add a AR gun===================');
+						#}
 					}
 					if((p.visited.indexOf('305')!=-1) && (p.visited.indexOf('306')!=-1)){
-						p.guns.push(new Weapon('shotGun', 60, 40));
+						#if(!contains(p.guns,'shotGun')){
+							p.guns.push(new Weapon('shotGun', 60, 40));
+							addNewARObject(2,deviceOrientation);
+						#}
 					}
 					print('--------------------------------------------------------------------youhouuuuu you have a gun---------------'+ p.guns[0]);
 					print ('********* [ COLLECT LOOVS! ]');
@@ -3173,7 +3194,7 @@ OrderedGroup {
 								# show detected image
 								detectedImage(detectedPart.thumb);
 								clearARView();
-								addNewARObject(det, deviceOrientation);
+								#addNewARObject(det, deviceOrientation);
 								collectTimeRemaining = time2collectLove;
 								return;
 							}
@@ -3348,7 +3369,7 @@ OrderedGroup {
 					# verticalPos	= deviceVerticalPos(orientation.z);
 					# find the GPS coordinates (fake coordinates) that are in front of the player
 					mainARObjCoords = computeARPos(orientation.x, 13);
-					arNode 				= createARObject(mainARObjCoords, verticalPos);
+					arNode 				= createARObject(mainARObjCoords, verticalPos, idx);
 					ar_view.addObject 	= arNode;
 				#	addAdditionalARObjects(orientation.x, verticalPos);
 					player_instance.setMapGPSCenter = mapCenter;
@@ -3369,13 +3390,23 @@ OrderedGroup {
 					}
 				}
 				
-				function createARObject(coords, verticalPos) {
+				function createARObject(coords, verticalPos,idx) {
+					mp4	= 411;
+					if (idx==0){
+						mp4=412;
+					}
+					if (idx==1){
+						mp4=413;
+					}
+					if(idx==2){
+						mp4=414;
+					}
 					arNode 					= new SFNode ('AR_OBJECT');
 					arNode.name 			= 'arobj_'+Math.random().toString(36).substr(2, 5);
-					arNode.visible 			= true;
+					arNode.visible 			= truep.gun
 					arNode.playerPosition 	= new SFVec2f (player_instance.playerPosition.x, player_instance.playerPosition.y);
 					arNode.position 		= new SFVec3f (coords[0], coords[1], verticalPos);
-					arNode.objectURL		= ''+411;
+					arNode.objectURL		= ''+mp4;
 					arNode.distanceVisibility = -1;
 					arNode.objScale 		= new SFVec3f (0.015, 0.015, 0.015);
 					return arNode;
@@ -3927,7 +3958,7 @@ AT 0 {
 				ES_Descriptor {
 					ES_ID 38
 					muxInfo MuxInfo {
-						fileName "images/assets/red_diploma.png"
+						fileName "images/assets/hand_collect.jpg"
 					}
 				}
 			]
@@ -4059,7 +4090,7 @@ AT 0 {
 				ES_Descriptor {
 					ES_ID 51
 					muxInfo MuxInfo {
-						fileName "images/assets/blank_certificate_nan.png"
+						fileName "images/assets/empty_bag.jpg"
 					}
 				}
 			]
@@ -4175,6 +4206,42 @@ AT 0 {
 				}
 			]
 		}
+		# #
+		ObjectDescriptor {
+			objectDescriptorID 412
+			esDescr [
+				ES_Descriptor {
+					ES_ID 412
+					muxInfo MuxInfo {
+						fileName "arObjects/loov.mp4"
+					}
+				}
+			]
+		}
+		# #
+		ObjectDescriptor {
+			objectDescriptorID 413
+			esDescr [
+				ES_Descriptor {
+					ES_ID 413
+					muxInfo MuxInfo {
+						fileName "arObjects/loov.mp4"
+					}
+				}
+			]
+		}
+		# #
+		ObjectDescriptor {
+			objectDescriptorID 414
+			esDescr [
+				ES_Descriptor {
+					ES_ID 414
+					muxInfo MuxInfo {
+						fileName "arObjects/loov.mp4"
+					}
+				}
+			]
+		}
 		
 		#
 		# MEDIA TO DETECT (REFERENCE SIGNAL)
@@ -4245,50 +4312,7 @@ AT 0 {
 				}
 			]
 		}
-		ObjectDescriptor {
-			objectDescriptorID 307
-			esDescr [
-				ES_Descriptor {
-					ES_ID 307
-					muxInfo MuxInfo {
-						fileName "images/refsignal/cdci7.jpg"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 308
-			esDescr [
-				ES_Descriptor {
-					ES_ID 308
-					muxInfo MuxInfo {
-						fileName "images/refsignal/cdci8.jpg"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 309
-			esDescr [
-				ES_Descriptor {
-					ES_ID 309
-					muxInfo MuxInfo {
-						fileName "images/refsignal/cdci9.jpg"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 310
-			esDescr [
-				ES_Descriptor {
-					ES_ID 310
-					muxInfo MuxInfo {
-						fileName "images/refsignal/cdci10.jpg"
-					}
-				}
-			]
-		}
+	
 		#
 		# BREVET
 		#
@@ -4358,50 +4382,7 @@ AT 0 {
 				}
 			]
 		}
-		ObjectDescriptor {
-			objectDescriptorID 407
-			esDescr [
-				ES_Descriptor {
-					ES_ID 407
-					muxInfo MuxInfo {
-						fileName "images/refsignal/brevets/cdci7.jpg"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 408
-			esDescr [
-				ES_Descriptor {
-					ES_ID 408
-					muxInfo MuxInfo {
-						fileName "images/refsignal/brevets/cdci8.jpg"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 409
-			esDescr [
-				ES_Descriptor {
-					ES_ID 409
-					muxInfo MuxInfo {
-						fileName "images/refsignal/brevets/cdci9.jpg"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 410
-			esDescr [
-				ES_Descriptor {
-					ES_ID 410
-					muxInfo MuxInfo {
-						fileName "images/refsignal/brevets/cdci10.jpg"
-					}
-				}
-			]
-		}
+	
 		
 		#
 		# THUMBS (REFERENCE SIGNAL)
@@ -4472,50 +4453,7 @@ AT 0 {
 				}
 			]
 		}
-		ObjectDescriptor {
-			objectDescriptorID 607
-			esDescr [
-				ES_Descriptor {
-					ES_ID 607
-					muxInfo MuxInfo {
-						fileName "images/refsignal/thumbs/cdci7.jpg"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 608
-			esDescr [
-				ES_Descriptor {
-					ES_ID 608
-					muxInfo MuxInfo {
-						fileName "images/refsignal/thumbs/cdci8.jpg"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 609
-			esDescr [
-				ES_Descriptor {
-					ES_ID 609
-					muxInfo MuxInfo {
-						fileName "images/refsignal/thumbs/cdci9.jpg"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 610
-			esDescr [
-				ES_Descriptor {
-					ES_ID 610
-					muxInfo MuxInfo {
-						fileName "images/refsignal/thumbs/cdci10.jpg"
-					}
-				}
-			]
-		}
+		
 		#
 		# THUMBS ON MAP
 		#
@@ -4585,50 +4523,7 @@ AT 0 {
 				}
 			]
 		}
-		ObjectDescriptor {
-			objectDescriptorID 707
-			esDescr [
-				ES_Descriptor {
-					ES_ID 707
-					muxInfo MuxInfo {
-						fileName "images/map/cdci7.png"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 708
-			esDescr [
-				ES_Descriptor {
-					ES_ID 708
-					muxInfo MuxInfo {
-						fileName "images/map/cdci8.png"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 709
-			esDescr [
-				ES_Descriptor {
-					ES_ID 709
-					muxInfo MuxInfo {
-						fileName "images/map/cdci9.png"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 710
-			esDescr [
-				ES_Descriptor {
-					ES_ID 710
-					muxInfo MuxInfo {
-						fileName "images/map/cdci10.png"
-					}
-				}
-			]
-		}
+		
 		#
 		# SOUNDS
 		#
