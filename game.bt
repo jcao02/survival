@@ -2220,6 +2220,24 @@ OrderedGroup {
                                                             ImageTexture_BackImage "59"
                                                             ImageTexture_OverImage "59"
                                                         }
+                                                        # Showing distance to player to boss
+                                                        
+                                                        DEF DISTANCE TEXT {
+                                                            Transform2D_translation -160 20
+                                                            Layout_size 150 30 
+                                                            FontStyle_size 16
+                                                            Material2D_emissiveColor 0 1 0
+                                                            Text_string "Boss: INF"
+                                                        }
+                                                        #Current weapon on interface
+                                                        DEF CURRENT TEXT {
+                                                            Transform2D_translation -160 0
+                                                            Layout_size 150 30 
+                                                            FontStyle_size 16
+                                                            Material2D_emissiveColor 0 1 0
+                                                            Text_string "Weapon: knife"
+                                                        }
+
                                                     ]
                                                 }
 											]
@@ -2409,22 +2427,7 @@ OrderedGroup {
                             loop TRUE
                             enabled FALSE
                         }
-                        # Showing distance to player to boss
-                        DEF DISTANCE_TITLE TEXT {
-                            Transform2D_translation -160 20
-                            Layout_size 150 30 
-                            FontStyle_size 16
-                            Material2D_emissiveColor 0 1 0
-                            Text_string "Boss's distance"
-                        }
-                        DEF DISTANCE TEXT {
-                            Transform2D_translation -200 0
-                            Layout_size 28 28 
-                            FontStyle_size 20
-                            Material2D_emissiveColor 0 1 0
-                            Text_string "INF"
-                        }
-
+                        
                         #Damage on interface
                         DEF DAMAGE_TIMER TimeSensor {
                             loop FALSE
@@ -2440,6 +2443,7 @@ OrderedGroup {
                             ]
                         
                         }
+
                         
 
 					]
@@ -2578,6 +2582,8 @@ OrderedGroup {
             eventIn     SFFloat     hideExplosion
             eventIn     SFString    preventPlayer   
             eventIn     SFTime      hideDamage
+            eventOut    SFBool      weaponChanged
+            eventIn     SFBool      changeWeapon
             
 			field 		SFNode 		monster_timer   USE MONSTER_TIMER
             field       SFNode      explosion       USE EXPLOSION_SW
@@ -2653,7 +2659,7 @@ OrderedGroup {
 						p = new Player(username, '?', -1, -1, 100);
 					}
 
-                    boss = new Boss('Godzilla', 100, 5, -1, -1, 1); 
+                    boss = new Boss('Godzilla', 10000, 5, -1, -1, 1); 
 
 				}
 				
@@ -2704,6 +2710,8 @@ OrderedGroup {
                         childAdd  = new MFNode(dialog);
 
           
+                        # Stopping recognition 
+
                         # ROUTE to close dialog
                         Browser.addRoute(dialog, 'accept', thisScript, 'nextStage');
                     }
@@ -2747,9 +2755,9 @@ OrderedGroup {
                             # Change to next weapon
                             print ('No ammo. Next weapon!');
                             p.current--;
+                            weaponChanged = true;
 
                         }
-
 
                         print('Player HP: ' + p.hp);
                         print('Boss HP: ' + boss.hp);
@@ -2759,6 +2767,10 @@ OrderedGroup {
                             gameOver = 'P';
                         }
                     }
+                }
+
+                function changeWeapon(weapon){
+                    current_weapon.Text_string = p.guns[p.current].name
                 }
 
                 function hideExplosion(value){
@@ -3023,12 +3035,12 @@ OrderedGroup {
                         # DONT FORGET TO ADD RANDOM POSITION LATER
 
                         random = parseInt(Math.random()*4);
-                        x                         = player_instance.playerPosition[0] + 0.000015 * random;
-                        y                         = player_instance.playerPosition[1] + 0.000020 * random;
+                        x                         = player_instance.playerPosition[0];
+                        y                         = player_instance.playerPosition[1];
                         arNode.position[0]        = x;
                         arNode.position[1]        = y;
                         arNode.position[2]        = 5;
-						arNode.objectURL          = ''+411;
+						arNode.objectURL          = ''+412;
 						arNode.distanceVisibility = 0;
 						arNode.objScale           = new SFVec3f (0.010, 0.010, 0.010);
 						arNode.visible            = true;
@@ -3038,7 +3050,7 @@ OrderedGroup {
 						Browser.addRoute(arNode, 'onPlayerLeft', thisScript, 'deactivateMonsterAttack');
 						Browser.addRoute(monster_timer, 'cycleTime', thisScript, 'monsterAttacks');
 						Browser.addRoute(arNode, 'showDistance', thisScript, 'preventPlayer');
-						Browser.addRoute(chase_timer, 'cycleTime', arNode, 'chasePlayer');
+						Browser.addRoute(chase_timer, 'time', arNode, 'chasePlayer');
 
 						ar_view.addObject 	= arNode;
 						print ('arNode.position = ' + arNode.position);
@@ -3050,7 +3062,7 @@ OrderedGroup {
                 }
 
                 function preventPlayer(value) {
-                    distance_string.Text_string = value;
+                    distance_string.Text_string = 'Boss: '+value+' m.';
 
                     distanceInt = parseInt(value);
 
@@ -3068,6 +3080,7 @@ OrderedGroup {
 					p.visited.push(detectedPart.partID);
 					if((p.visited.indexOf('301')!=-1) && (p.visited.indexOf('302')!=-1)){
 						p.guns.push(new Weapon('minigun', 100, 25));
+
 					}
 					if((p.visited.indexOf('303')!=-1) && (p.visited.indexOf('304')!=-1)){
 						p.guns.push(new Weapon('gun', 30, 50));
@@ -3539,6 +3552,7 @@ ROUTE SHOOT_BUTTON.onClick TO SCRIPT.shootMonster
 ROUTE SCRIPT.gameOver TO SCRIPT.gameResult
 ROUTE EXPLOSION_TIMER.fraction_changed TO SCRIPT.hideExplosion
 ROUTE DAMAGE_TIMER.cycleTime TO SCRIPT.hideDamage
+ROUTE SCRIPT.weaponChanged TO SCRIPT.changeWeapon
 
 
 ROUTE INTERNET_INSTANCE.internet TO SCRIPT.internetConnection
@@ -4175,7 +4189,17 @@ AT 0 {
 				}
 			]
 		}
-		
+		ObjectDescriptor {
+			objectDescriptorID 412
+			esDescr [
+				ES_Descriptor {
+					ES_ID 412
+					muxInfo MuxInfo {
+						fileName "arObjects/ghost.mp4"
+					}
+				}
+			]
+		}
 		#
 		# MEDIA TO DETECT (REFERENCE SIGNAL)
 		#
