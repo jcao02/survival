@@ -1,0 +1,4805 @@
+#define MAP_CENTER 		48.625236, 2.442196
+#define PLAYER_POSITION 48.625187, 2.441990
+#define NR_OF_QUESTIONS 5
+
+InitialObjectDescriptor {
+	objectDescriptorID 100
+	audioProfileLevelIndication 255
+	visualProfileLevelIndication 254
+	sceneProfileLevelIndication 1
+	graphicsProfileLevelIndication 1
+	ODProfileLevelIndication 1
+	esDescr [
+		ES_Descriptor {
+			ES_ID 101
+			decConfigDescr DecoderConfigDescriptor {
+				streamType 3
+				decSpecificInfo BIFSConfig {
+					useNames true
+					isCommandStream true
+					pixelMetric true
+					pixelWidth 480
+					pixelHeight 800
+				}
+			}
+		}
+		ES_Descriptor {
+			ES_ID 102
+			decConfigDescr DecoderConfigDescriptor {
+				streamType 1
+			}
+		}
+	]
+}
+
+#################################################### PROTO DEFINITIONS ####################################################
+
+EXTERNPROTO REFERENCE_SIGNAL [
+	exposedField 	MFString  	source []
+	exposedField 	MFString  	referenceResources []
+	exposedField 	SFBool   	enabled FALSE
+	exposedField 	MFString  	detectionHints []
+	exposedField 	SFVec3f   	translation 0 0 0
+	exposedField 	SFRotation rs_rotation 0 0 1 0
+	eventOut  		MFInt32   	onInputDetected
+	eventOut  		MFInt32   	onTranslationChanged
+	eventOut  		MFInt32   	onRotationChanged
+	eventOut  		SFInt32  	onError
+] "urn:inet:gpac:builtin:ReferenceSignal"
+
+PROTO AUDIO [
+	field 		 SFBool 	A_SPATIALIZE 	TRUE
+	exposedField SFFloat 	A_INTENSITY 	1.0
+	exposedField SFVec2f 	A_LOCATION 		0,0
+	exposedField SFFloat 	A_SPEED 		1.0
+	exposedField SFTime 	A_START_TIME 	-1
+	exposedField SFTime 	A_STOP_TIME 	-1
+	exposedField MFString 	A_URL 			[]
+	exposedField SFFloat 	A_PITCH 		1.0
+]
+{
+	DEF SD Sound2D {
+		intensity 	IS A_INTENSITY
+		location    IS A_LOCATION
+		source DEF AS AudioSource {
+			url 		IS A_URL
+			pitch		IS A_PITCH
+			speed 		IS A_SPEED
+			startTime 	IS A_START_TIME
+			stopTime 	IS A_STOP_TIME
+		}
+	}
+}
+
+#
+# AR OBJECT
+#
+PROTO AR_OBJECT [
+	exposedField 	SFString 		name 					""
+	exposedField 	SFVec3f 		position 				0 0 0
+	exposedField	SFVec2f	    	playerPosition			0.0 0.0
+	exposedField 	SFBool			visible					FALSE
+	exposedField	SFBool			clickable				FALSE
+	exposedField 	MFString 		objectURL 				"401"
+	exposedField 	SFVec3f 		objTrans 				0 0 0
+	exposedField 	SFVec3f 		objScale 				0.003 0.003 0.003
+	exposedField 	SFInt32 		distanceVisibility 		0
+	exposedField 	SFRotation 	    objRotation 			0 0 0 0
+	exposedField	SFInt32		    objectType				0
+    exposedField    SFInt32         HP                      500
+	eventOut		SFString		onClick
+    eventOut        SFBool          onPlayerAround 
+    eventOut        SFBool          onPlayerLeft  
+    eventOut        SFBool          bossWins  
+    eventOut        SFString        showDistance
+    eventIn    		SFTime      	monsterAttacks
+    eventIn 		SFFloat   		chasePlayer
+]	
+{
+	Group {
+		children [
+			DEF AR_OBJECT_TS TimeSensor {
+				cycleInterval 	3
+				loop 			TRUE
+				enabled 		TRUE
+			}
+			DEF AR_OBJECT_SI OrientationInterpolator  {
+			   key 				[0 0.25 0.5 0.75 1]
+			   keyValue 		[0 1 0 0, 0 1 0 1.57, 0 1 0 3.14, 0 1 0 4.71, 0 1 0 6.28]
+			}
+			DEF AR_OBJECT_TouchSensor TouchSensor {}
+			DEF AR_OBJECT Switch {
+				whichChoice 	0
+				children [
+					DEF AR_OBJECT_TR Transform {
+						rotation 	 	1 0 0 1.57
+						scale 			0.5 0.5 0.5
+						children [
+							DEF OBJECT Transform {
+								translation IS objTrans
+								scale 		IS objScale
+								rotation 	IS objRotation
+								children [
+									Inline {
+										url IS objectURL
+									}
+								]
+							}
+							Switch {
+								whichChoice IS distanceVisibility
+								children [
+									DEF AR_OBJECT_DISTANCE_TRANSLATION Transform {
+										translation 0 1.2 0
+										children [
+											Shape {
+												geometry DEF AR_OBJECT_DISTANCE_STRING Text {
+													string []
+													fontStyle FontStyle {
+														family 		["Verdana" "SERIF" "Arial"]
+														justify 	["MIDDLE"]
+														size 		0.6
+													}
+												}
+												appearance Appearance {
+													material Material2D {
+														emissiveColor 	0 0 1
+														filled 			TRUE
+													}
+												}
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+			DEF AR_OBJECT_SCRIPT Script {
+                field       SFNode      thisScript			        USE AR_OBJECT_SCRIPT
+				field 		SFNode 	    arObject 					USE AR_OBJECT
+				field 		SFNode 	    arObjectTouch 				USE AR_OBJECT_TouchSensor
+				field 		SFNode 	    arObjectPos 				USE AR_OBJECT_TR
+				field 		SFNode		arObjDistanceString			USE AR_OBJECT_DISTANCE_STRING
+				field 		SFNode		arObjDistanceTranslation	USE AR_OBJECT_DISTANCE_TRANSLATION
+				eventIn 	SFString	setName					    IS name
+				eventIn 	SFVec3f 	setPosition 			    IS position
+				eventIn		SFVec2f	    setPlayerPos			    IS playerPosition
+				eventIn 	SFBool		setVisible 				    IS visible
+				eventIn		SFBool		setClickable 		    	IS clickable
+				eventIn		SFBool		arObjectClicked
+				eventOut	SFString	onClick 			    	IS onClick
+                eventOut    SFBool      playerAround                IS onPlayerAround
+                eventOut    SFBool      playerLeft                  IS onPlayerLeft  
+                eventOut    SFBool      playerIsDead                IS bossWins
+                eventOut    SFString    showDistance                IS showDistance
+                eventIn     SFTime      monsterAttacks				IS monsterAttacks
+                eventIn 	SFFloat		chasePlayer					IS chasePlayer
+				
+				url ["javascript:
+					function initialize() {
+						playerPos 		= new SFVec2f (0,0);
+						objectPosition 	= new SFVec3f (0,0,0);
+						arObjectName	= 'notSet';
+					}
+					
+					function setName(name) {
+						if (name == '') return;
+						print ('[---------------------------------------------------------]');
+						arObjectName = name;
+						print ('[ AR OBJECT - ' + arObjectName + ' ]: Set NAME to ' + name);
+					}
+					
+					function setPosition(pos) {
+						if (vec2fUndefined(pos)) return;
+						print ('[ AR OBJECT - ' + arObjectName + ' ]: Set POSITION: ' + pos);
+						objectPosition = pos;
+						setObjTranslation();
+					}
+					
+					function setPlayerPos(pos) {
+						if (vec2fUndefined(pos)) return;
+						print ('[ AR OBJECT - ' + arObjectName + ' ]: Set PLAYER POSITION: ' + pos);
+						playerPos = pos;
+						setObjTranslation();
+						updatePlayerGPS();
+					}
+					
+					function setVisible(val) {
+					#	if (vec2fUndefined(objectPosition)) return;
+						if (val) {
+							arObject.whichChoice = 0;
+							print ('[ AR OBJECT - ' + arObjectName + ' ]: Set VISIBLE');
+						}
+						else {
+							arObject.whichChoice = -1;
+							print ('[ AR OBJECT - ' + arObjectName + ' ]: Set INVISIBLE');
+						}
+						setObjTranslation();
+					}
+					
+					function setClickable(val) {
+						if (val) {
+							arObjectTouch.enabled = true;
+							print ('[ AR OBJECT - ' + arObjectName + ' ]: Set CLICKABLE');
+						}
+						else {
+							arObjectTouch.enabled = false;
+							print ('[ AR OBJECT - ' + arObjectName + ' ]: Set UNCLICKABLE');
+						}
+					}
+					
+					function arObjectClicked(val) {
+						if (val) {
+							onClick = arObjectName;
+						}
+					}
+					
+					function setObjTranslation() {
+						if (!arObjectIsVisible() || vec2fUndefined(playerPos) || vec2fUndefined(objectPosition)) return;
+						tmpx = haversine_m(playerPos.x, playerPos.y, objectPosition.x, playerPos.y);
+						tmpy = haversine_m(playerPos.x, playerPos.y, playerPos.x, objectPosition.y);
+												
+						if ( playerPos.x < objectPosition.x ) {
+							tmpx = -tmpx;
+						}
+						if ( playerPos.y > objectPosition.y )
+							tmpy = -tmpy;
+
+						arObjectPos.translation = new SFVec3f ( tmpx, tmpy, objectPosition.z );
+						print ('[ AR OBJECT - ' + arObjectName + ' ]: Set TRANSLATION: ' + arObjectPos.translation);
+						setDistanceToPlayer();
+					}
+					
+					function setDistanceToPlayer() {
+						distance = haversine_m(objectPosition.x, objectPosition.y, playerPos.x, playerPos.y).toFixed();
+						arObjDistanceString.string = new MFString(distance + ' m');
+						print ('[ AR OBJECT - ' + arObjectName + ' ]: Set DISTANCE to PLAYER: ' + distance + ' m');
+                        showDistance = distance.toString();
+						angle = markerPlayerAngle(objectPosition.x, objectPosition.y, playerPos.x, playerPos.y);
+						arObjDistanceTranslation.rotation = new SFRotation( 0, 1, 0, angle);
+						print ('[ AR OBJECT - ' + arObjectName + ' ]: Set PLAYER-ARObject angle: ' + angle);
+					}
+					
+					function markerPlayerAngle(markerLat, markerLong, playerLat, playerLong) {
+						dy 		= markerLat - playerLat;
+						dx 		= Math.cos(Math.PI/180*playerLat)*(markerLong - playerLong);
+						return Math.atan2(dy, dx);
+					}
+					
+					function arObjectIsVisible() {
+						return arObject.whichChoice == 0;
+					}
+					
+					function vec2fUndefined(pos) {
+						return ((pos.x == 0) && (pos.y == 0));
+					}
+					
+					#
+					# Do not change the following functions
+					# 
+					
+					function haversine_m(lat1, lon1, lat2, lon2) {
+						R 		= 6371000;
+						lat1	*=Math.PI/180;
+						lon1	*=Math.PI/180;
+						lat2	*=Math.PI/180;
+						lon2	*=Math.PI/180;
+						d 		= Math.acos	(	
+												Math.sin(lat1)*Math.sin(lat2) + 
+												Math.cos(lat1)*Math.cos(lat2) *
+												Math.cos(lon2-lon1)
+											) * R;
+						return d; 
+					}
+                #
+                # Set up playerAround and playerLeft
+                #
+                function updatePlayerGPS() {
+                    if (playerPos.x == 0 || playerPos.y == 0) return;
+                    distance = haversine_km(objectPosition[0], objectPosition[1], 
+                                            playerPos.x, 
+                                            playerPos.y);
+                    # to meters
+                    distance *= 1000;
+                    if (!playerAround && (distance <= objectPosition[2])) {
+						print (' AR Object: ' + arObjectName + ': player around!');
+                        playerAround 	= true;
+                    }
+                    else if (playerAround && (distance > objectPosition[2])) {
+						print (' AR Object: ' + arObjectName + ': player left!');
+                        playerLeft 		= true;
+                        playerAround 	= false;
+                    }
+                }
+                #
+                # Calculates distance between 2 points (lat1, long1) & (lat2, long2)
+                # http://en.wikipedia.org/wiki/Haversine_formula
+                # http://stackoverflow.com/questions/365826/calculate-distance-between-2-gps-coordinates
+                #
+                function haversine_km(lat1, long1, lat2, long2) {
+                    d2r 	= Math.PI / 180;
+                    d_latt 	= (lat2 - lat1) * d2r;
+                    d_long 	= (long2 - long1) * d2r;
+                    a 		= Math.sin(d_latt/2) * Math.sin(d_latt/2) 
+                                + Math.cos(lat1 * d2r) * Math.cos(lat2 * d2r) 
+                                * Math.sin(d_long/2) * Math.sin(d_long/2);
+
+                    c 		= 2 * Math.atan2(Math.sqrt(a),  Math.sqrt(1-a));
+                    return 6371 * c;
+                }
+
+                    
+                #
+                # Moves boss to chase player (NOT DONE YET)
+                #
+                function chasePlayer(){
+                    move = 0.00001;
+                    change = false;
+                	x1 = objectPosition[0];
+                	y1 = objectPosition[1];
+
+                	x2 = playerPos.x;
+                	y2 = playerPos.y;
+
+                    
+
+                    if (Math.abs(x1 - x2) > move) {
+                        change = true;
+                        if (x1 > x2) {
+                            x1 -= move;
+                        }
+                        else {
+                            x1+= move;
+                        }
+                    }   
+
+                    if (Math.abs(y1 - y2) > move) {
+                        change = true;
+                        if (y1 > y2) {
+                            y1 -= move;
+                        }
+                        else {
+                            y1+= move;
+                        }
+                    }   
+
+                    if (change) {
+                        print('[CHASING] MONSTER POS: ' + x1 + ', ' + y1);
+                        setPosition(new SFVec2f(x1,y1));
+                    }
+                }
+
+
+
+                
+				"]
+			}
+		]
+	}
+	ROUTE AR_OBJECT_TS.fraction_changed 	TO AR_OBJECT_SI.set_fraction
+	ROUTE AR_OBJECT_SI.value_changed 		TO OBJECT.rotation
+	ROUTE AR_OBJECT_TouchSensor.isActive 	TO AR_OBJECT_SCRIPT.arObjectClicked
+}
+
+#
+# AR VIEW
+#
+PROTO AR_VIEW [
+	exposedField SFVec2f 	translation 	0 0
+	exposedField SFVec2f 	layerSize 		480 800
+	exposedField SFVec2f 	rectangleSize 	800 480
+	exposedField SFVec3f	cameraTrans		0 0 -900
+	exposedField MFNode 	ar_objects 		[]
+	eventIn 	 SFVec2f 	setPlayerPosition
+	eventIn 	 SFNode	    addObject
+	eventIn		 SFBool 	openCamera
+	eventIn 	 MFNode 	removeARObjects
+]
+{
+	Transform2D {
+		translation IS translation
+		children [
+			OrderedGroup {
+				children [
+					Group {
+						children [
+						#
+						# Layer3D IS A MUST! DO NOT REMOVE IT!
+						#
+							Layer3D {
+								size IS layerSize
+								navigationInfo NavigationInfo {
+									type ["NONE"]
+								}
+								background Background {
+								   # groundAngle [0.56 1.2]
+								   # groundColor [0 0 0, 0.1 0.8 0.8, 0.5 1 0]
+								   # skyAngle [0.5 1.2 1.8]
+								   # skyColor [0 0 0.5,  0.2 0.4 0.2, 0.4 0.1 0.0, 0.5 0.5 0.2]
+								}
+								viewpoint Viewpoint {
+									jump FALSE
+									description "AR View"
+									position 0 0 0
+									fieldOfView 0.78
+								}
+								children [
+									Transform {
+										rotation 0 0 1 -1.57
+										translation IS cameraTrans
+										children [
+											Shape {
+												appearance Appearance {
+													texture DEF MT ImageTexture {
+													#	url "12"
+													#	url ["hw://camera"]
+													}
+													material Material2D {
+														lineProps LineProperties {
+															width 0
+														}
+													}
+												}
+												geometry Rectangle {
+													size IS rectangleSize
+												}
+											}
+										]
+									}
+									Transform {
+										#
+										# Tablet: rotation 0 0 1 3.14 # AR View displayed correct only while holding the tablet horizontally
+										# Phone: rotation 0 0 1 -1.57 # AR View works no matter how the phone device is hold
+										#
+										rotation 0 0 1 -1.57
+										children [
+											DEF	OBJ_CONTAINER Transform {								
+												children IS ar_objects
+											}
+											
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		]
+	}
+	DEF SCRIPT Script {
+		eventIn SFVec3f 	updateOrientation
+		eventIn SFVec2f 	updatePlayerPos 	IS setPlayerPosition
+		eventIn	SFNode		addARObject			IS addObject
+		eventIn	SFBool 	    openCamera 			IS openCamera
+		eventIn MFNode 	    removeARObjects 	IS removeARObjects
+		field 	SFNode		movieTexture		USE MT
+		field 	SFNode 	    objects 			USE OBJ_CONTAINER
+		
+		
+		url ["javascript:
+			function initialize() {
+				prevOrientation = new SFVec3f (0,0,0);
+			}
+			
+			function openCamera(val) {
+				if (val) {
+					movieTexture.url = new MFString ('hw://camera');
+				}
+			}
+			
+			function removeARObjects(arObject) {
+				print ('[ AR VIEW ]: Remove AR Object: ' + arObject[0].name);
+				objects.removeChildren = new MFNode(arObject[0]);
+				print ('[ AR VIEW ]: There are now ' + objects.children.length + ' objects in the AR View');
+			}
+			
+			function addARObject(arObjNode) {
+				if (arObjNode == null) return;
+				print ('[ AR VIEW ]: Add new AR Object instance to the AR View: ' + arObjNode.name);
+				objects.addChildren = new MFNode(arObjNode);
+			}
+			
+			function updatePlayerPos(pos) {
+				if (pos.x == 0 && pos.y == 0) return;
+				print ('[ AR VIEW ]: UPDATE PLAYER POSITION: ' + pos);
+				for ( i = 0; i < objects.children.length; i++ ) {
+					objects.children[i].playerPosition = new SFVec2f (pos.x, pos.y);
+				}
+			}
+			
+			function updateOrientation(rot)
+			{
+				if ( objects.children.length == 0 ) { return;}
+				if ((Math.abs(prevOrientation.x - rot.x) < 2) && (Math.abs(prevOrientation.y - rot.y) < 2) && (Math.abs(prevOrientation.z - rot.z) < 2)) return;
+				 
+				prevOrientation.x = rot.x;
+				prevOrientation.y = rot.y;
+				prevOrientation.z = rot.z;
+
+				Azimuth = rot.x;
+				Pitch 	= rot.y;
+				Roll 	= rot.z;
+				conv 	= 3.14/180/2;
+				c1 		= Math.cos(Azimuth 	* conv);
+				s1 		= Math.sin(Azimuth 	* conv);
+				c2 		= Math.cos(Pitch 	* conv);
+				s2	 	= Math.sin(Pitch 	* conv);
+				c3	 	= Math.cos(Roll 	* conv);
+				s3 		= Math.sin(Roll 	* conv);
+
+				c1c2 	= c1*c2;
+				s1s2 	= s1*s2;
+				
+				w 		= c1c2*c3 - s1s2*s3;
+				x 		= c1c2*s3 + s1s2*c3;
+				y 		= s1*c2*c3 + c1*s2*s3;
+				z 		= c1*s2*c3 - s1*c2*s3;
+
+				angle 	= 2 * Math.acos(w);
+				norm 	= x*x + y*y + z*z;
+
+				if ( norm < 0.001 ) {
+					x = 1;
+					y = z = 0;
+				}
+				else {
+					norm = Math.sqrt(norm);
+					x /= norm;
+					y /= norm;
+					z /= norm;
+				}
+				objects.rotation = new SFRotation( x, z, y, angle );
+			}
+		"]
+	}	
+	DEF ORIENT_SENS InputSensor {
+		url "4"
+		buffer {
+			REPLACE SCRIPT.updateOrientation BY 0 0 0
+		}
+	}
+}
+
+
+#
+# MAP PLAYER
+#
+PROTO MAP_PLAYER [
+	exposedField SFString 	name 					"playerName"
+	exposedField SFColor 	playerColor 			0.7 0 0
+	exposedField SFVec2f 	playerTranslation 		0 0
+	exposedField SFInt32 	playerChoice			0
+	exposedField SFVec2f 	playerSize 				20 20
+	exposedField MFString 	imageUrl 				"20"
+	exposedField SFVec2f 	playerPosition			0 0
+	exposedField SFVec2f 	setPlayerGPSPosition	PLAYER_POSITION
+	exposedField SFFloat 	playerOrientation  		0.0
+	eventIn 	SFInt32	setMapZoomLevel
+	eventIn 	SFVec2f   	setMapGPSCenter
+	# 'arrow_navigator': for testing -> use arrow navigator proto to change player position
+	# through the 'arrow_navigator' event (up, down, left, right mapped to -1, 1, 2, 3)
+	eventIn 	SFInt32	arrow_navigator
+]
+{
+	PROTO PLAYER_PIECE [
+		exposedField SFVec2f rectangleTranslation 	0 0
+		exposedField SFVec2f rectangleSize 		5 5
+		exposedField SFColor playerColor 			0 1 0
+		exposedField SFFloat rotationAngle 		0.0
+	]
+	{
+		Transform2D {
+			translation 	IS rectangleTranslation
+			rotationAngle 	IS rotationAngle
+			children [
+				Shape {
+					appearance Appearance {
+						material Material2D {
+							emissiveColor IS playerColor
+							filled TRUE
+						}
+					}
+					geometry Rectangle {
+						size IS rectangleSize
+					}
+				}
+			]
+		}
+	}
+	PROTO PLAYER_IMAGE [
+		exposedField SFVec2f 	playerSize 		10 10
+		exposedField MFString 	imageUrl 		"20"
+		exposedField SFVec2f	translation 	0 0
+		exposedField SFFloat   rotationAngle   0.0
+	]
+	{
+		Transform2D {
+			translation IS translation
+			rotationAngle IS rotationAngle
+			children [
+				Shape {
+					appearance Appearance {
+						material Material2D {
+							lineProps LineProperties {
+								width 0
+							}
+						}
+						texture ImageTexture {
+							url IS imageUrl
+						}
+					}
+					geometry Rectangle {
+						size IS playerSize
+					}
+				}
+			]
+		}
+	}
+	DEF PLAYER Transform2D {
+		translation 0 0
+		children [
+			Switch {
+				whichChoice IS playerChoice
+				choice [
+					DEF PLAYER_V1 PLAYER_IMAGE {
+						playerSize 		IS playerSize
+						imageUrl 		IS imageUrl
+					}
+					DEF PLAYER_V2 Transform2D {
+						children [
+							PLAYER_PIECE {
+								rectangleTranslation 0 6
+								playerColor IS playerColor
+								rotationAngle IS playerOrientation
+							}
+							PLAYER_PIECE {
+								rectangleTranslation 0 -6
+								playerColor IS playerColor
+							}
+							PLAYER_PIECE {
+								rectangleTranslation 6 0
+								playerColor IS playerColor
+							}
+							PLAYER_PIECE {
+								rectangleTranslation -6 0
+								playerColor IS playerColor
+							}
+						]
+					}
+				]
+			}
+		]
+	}
+	
+	DEF UI_PLAYER_SCRIPT Script {
+		field 		SFNode 	    playerV1 			USE PLAYER_V1
+		field		SFNode		player				USE PLAYER
+		# for testing or inside environments
+		field 		SFVec2f	    playerPositionTest	PLAYER_POSITION
+		eventOut 	SFVec2f 	playerPosition 		IS playerPosition
+		eventOut	SFFloat	    playerOrientation 	IS playerOrientation
+		eventIn		SFVec2f	    setMapGPSCenter		IS setMapGPSCenter
+		eventIn		SFInt32	    updateMapZoomLevel 	IS setMapZoomLevel
+		eventIn		SFVec2f	    setPlayerGPSPos		IS setPlayerGPSPosition
+		# 'arrow_navigator': for testing
+		eventIn 	SFInt32	    arrow_navigator		IS arrow_navigator
+		eventIn 	SFInt32 	keyPress
+		eventIn 	SFVec3f 	updatePlayerGPSPosition
+		eventIn		SFVec3f	    updatePlayerOrientation
+
+		url ["javascript:
+			function initialize() {
+				# Equatorial radius (m)
+				eqRadius			= 6378137;
+				playerLat 			= playerPositionTest.x;
+				playerLon 			= playerPositionTest.y;
+				tileSize			= 256;
+				originShift 		= 2 * Math.PI * eqRadius / 2.0;
+				initialResolution 	= 2 * Math.PI * eqRadius / tileSize;
+				mapZoomLevel		= 19;
+				playerCoord			= new Array(0, 0);
+				mapCenterCoord		= new Array(0, 0);
+				mapGPSCenter		= new SFVec2f (0, 0);
+			}
+			
+			# the player position should be updated each time one of the map properties has been changed: mapSize, mapZoomLevel or mapGPSCenter
+			# and of course when its GPS position has been changed. When any of the first 3 parameters change, this function is called
+			# if, for example, playerCoord has been changed then computing the mapCenterCoord is redundant (as its value is the old one) but 
+			# on the other hand, recomputing everything avoids further problems + initialization errors which is due to the order of the events:
+			# first of all the "mapSize" should be set, and then the "zoomLevel" and so on. Using this computing redundancy allows the user to
+			# not care about the order of the events (at the initialize stage)
+			function updatePlayerPosition() {
+				# update playerCoord and mapCenterCoord (if it's the case: the playerCoord or mapCenterCoord may be the same
+				# but compute it anyways just to be sure everything has been updated with the last values)
+				mapCenterCoord 	= LatLonToPixels(mapGPSCenter.x, mapGPSCenter.y);
+				playerCoord 	= LatLonToPixels(playerLat, playerLon);
+				updatePlayerPositionOnMap();
+			}
+			
+			function updatePlayerGPSPosition(gps) {
+				print ('[ PLAYER ]: UPDATE PLAYER GPS POSITION: (Latitude: ' + gps.y + '), (Longitude: ' + gps.x + ')');
+				playerLat = gps.y;
+				playerLon = gps.x;
+				playerPosition 	= new SFVec2f (playerLat, playerLon);
+				playerCoord 	= LatLonToPixels(playerLat, playerLon);
+				updatePlayerPositionOnMap();
+			}
+			
+			function updateMapZoomLevel(mapZoom) {
+				print ('[ PLAYER ]: SET MAP ZOOM LEVEL: ' + mapZoom);
+				mapZoomLevel = mapZoom;
+				updatePlayerPosition();
+			}
+			
+			function setPlayerGPSPos(gps) {
+				updatePlayerGPSPosition(new SFVec2f(gps.y, gps.x));
+			}
+			
+			function setMapGPSCenter(mapGPS) {
+				if (mapGPS.x == 0 && mapGPS.y ==0) return;
+				print ('[ PLAYER ]: SET MAP GPS CENTER: ' + mapGPS);
+				mapGPSCenter 	= new SFVec2f (mapGPS.x, mapGPS.y);
+				updatePlayerPosition();
+			}
+			
+			function updatePlayerOrientation(val) {
+				playerV1.rotationAngle=val[0]*Math.PI/180-1.40;
+				playerOrientation = playerV1.rotationAngle;
+			}
+			
+			function keyPress(value)
+			{
+				if (value == 0) return;
+				playerCoord = LatLonToPixels(playerLat, playerLon);
+				switch (value)
+				{
+					# Right Key
+					case 68: 
+					{
+						player.translation.x += 8;
+						playerCoord[0] += 8;
+						break;
+					}
+					# Left Key
+					case 65: 
+					{
+						player.translation.x -= 8;
+						playerCoord[0] -= 8;
+						break;
+					}
+					# Up Key
+					case 87:
+					{
+						player.translation.y += 8;
+						playerCoord[1] += 8;
+						break;
+					}
+					# Down Key
+					case 83:
+					{
+						player.translation.y -= 8;
+						playerCoord[1] -= 8;
+						break;
+					}
+				}
+				playerPositionArr = PixelsToLatLon(playerCoord[0], playerCoord[1]);
+				playerLat         = playerPositionArr[0];
+				playerLon         = playerPositionArr[1];
+				# IMPORTANT!!!
+				#
+				# because of the SFVec2f precision the "playerPosition" will have slightly different values than the actual ones.
+				# The correct GPS position is stored in an array (playerPositionArr) therefore "playerLat" and "playerLong" will
+				# recieve values from the "playerPositionArr" variable in order not to accumulate the error (what would happen if 
+				# playerLat and playerLong will recieve GPS position from the "playerPosition" variable which is not precise. The iteration
+				# will of course increase the error).
+				# Conclusion: the GPS position of the player has an error of around 1-2 meters
+				playerPosition = new SFVec2f (playerPositionArr[0], playerPositionArr[1]);
+				print ('new player position = ' + playerPosition);
+			}
+			
+			function updatePlayerPositionOnMap() {
+				# if playerCoord OR mapCenterCoord has not been set yet, return
+				if ((playerCoord[0] == Number.POSITIVE_INFINITY && playerCoord[1] == Number.POSITIVE_INFINITY) || 
+					(mapCenterCoord[0] == Number.POSITIVE_INFINITY && mapCenterCoord[1] == Number.POSITIVE_INFINITY)) {
+					return;
+				}
+				player.translation 	= new SFVec2f (playerCoord[0] - mapCenterCoord[0], playerCoord[1] - mapCenterCoord[1]);
+				print ('[ PLAYER ]: SET NEW TRANSLATION ON MAP: ' + player.translation);
+			}
+			
+			# testing: keyboard arrows "wrapper"
+			function arrow_navigator(direction) {
+				print ('[ PLAYER ]: MOVE PLAYER: ' + direction);
+				if (direction == -1) return;
+				# up
+				if (direction == 0) {
+					keyPress(87);
+				}
+				# down
+				else if (direction == 1) {
+					keyPress(83);
+				}
+				# left
+				else if (direction == 2) {
+					keyPress(65);
+				}
+				# right
+				else if (direction == 3) {
+					keyPress(68);
+				}
+				return;
+			}
+			
+			function LatLonToPixels(lat, lon) {
+				ll2p 	= LatLonToMeters(lat, lon);
+				m2p 	= MetersToPixels(ll2p[0], ll2p[1]);
+				return new Array(m2p[0], m2p[1]); 
+			}
+			function LatLonToMeters(lat, lon ) {
+				mx 		= lon * originShift / 180.0;
+				my 		= Math.log( Math.tan((90 + lat) * Math.PI / 360.0 )) / (Math.PI / 180.0);
+				my 		= my * originShift / 180.0;
+				return new Array(mx, my);
+			}
+			function MetersToPixels(mx, my) {
+				res 	= Resolution();
+				px	 	= (mx + originShift) / res;
+				py 		= (my + originShift) / res;
+				return new Array(px, py);
+			}
+			function PixelsToLatLon(px, py) {
+				mp2m 	= PixelsToMeters(px, py);
+				mmtll 	= MetersToLatLon(mp2m[0], mp2m[1]);
+				return new Array(mmtll[0], mmtll[1]);
+			}
+			function MetersToLatLon(mx, my ) {
+				lon 	= (mx / originShift) * 180.0;
+				lat 	= (my / originShift) * 180.0;
+				lat 	= 180 / Math.PI * (2 * Math.atan( Math.exp( lat * Math.PI / 180.0)) - Math.PI / 2.0);
+				return new Array(lat, lon);
+			}
+			function PixelsToMeters(px, py) {
+				res 	= Resolution();
+				mx 		= px * res - originShift;
+				my 		= py * res - originShift;
+				return new Array(mx, my);
+			}
+			function Resolution() {
+				return initialResolution / (Math.pow(2,mapZoomLevel));
+			}
+		"]
+	}
+	DEF UI_MAP_KEY_SENS InputSensor {
+		url "1"
+		buffer {
+			REPLACE UI_PLAYER_SCRIPT.keyPress BY 0
+		}
+	}
+	DEF UI_PLAYER_ORIENTATION_SENS InputSensor {
+		url "4"
+		buffer {
+			REPLACE UI_PLAYER_SCRIPT.updatePlayerOrientation BY 0 0 0
+		}
+	}
+	DEF UI_PLAYER_GPS_SENS InputSensor {
+		url "7"
+		buffer {
+			REPLACE UI_PLAYER_SCRIPT.updatePlayerGPSPosition BY 0 0 0
+		}
+	}
+}
+
+
+PROTO UI_TAB_BUTTON [
+	exposedField SFVec2f Pos 0 0
+	exposedField SFVec2f Size 80 30
+	exposedField MFString BackImage ""
+	exposedField MFString BackImageSelected ""
+	exposedField MFString IconImage ""
+	exposedField MFString IconImageSelected "" 
+	exposedField MFString Text ""
+	exposedField SFColor TextColor 1 0 0
+	exposedField SFColor TextColorSelected 0.7 0 0
+	exposedField SFFloat TextSize 18
+	exposedField SFBool isSelected false
+	exposedField SFInt32 TabIndex -1
+	exposedField SFBool tsEnabled true
+	eventIn SFBool Deselect
+	eventIn SFBool Select
+	eventOut SFInt32 SelectedTab
+] 
+{
+ Transform2D {
+  translation IS Pos
+  children [
+   Shape {
+    appearance DEF UI_TAB_BUTTON_APP_BACK Appearance {
+     texture ImageTexture {
+      url IS BackImage
+     }
+     material DEF UI_TAB_BUTTON_MAT_LINE Material2D {
+      lineProps LineProperties {
+       width 0
+      }
+     }
+    }
+   }
+   Shape {
+    appearance DEF UI_TAB_BUTTON_APP_OVER Appearance {
+     texture ImageTexture {
+      url IS BackImageSelected
+     }
+     material USE UI_TAB_BUTTON_MAT_LINE
+    }
+   }
+   
+   Shape {
+    appearance DEF UI_TAB_BUTTON_T_COLOR Appearance {
+     material Material2D {
+      emissiveColor IS TextColor
+      filled true
+     }
+    }   
+   }
+   
+   Shape {
+    appearance DEF UI_TAB_BUTTON_T_COLOR_SEL Appearance {
+     material Material2D {
+      emissiveColor IS TextColorSelected
+      filled true
+     }
+    }   
+   }   
+   
+   DEF UI_TAB_BUTTON_TS TouchSensor {
+    enabled IS tsEnabled
+   }
+   DEF UI_TAB_BUTTON_SR Shape {
+    geometry Rectangle {
+      size IS Size
+    }
+    appearance USE UI_TAB_BUTTON_APP_BACK
+   }
+   DEF UI_TAB_BUTTON_ST Shape {
+    geometry DEF UI_TAB_BUTTON_TX Text {
+     string IS Text
+     fontStyle FontStyle {
+      justify ["MIDDLE" "MIDDLE"]
+      size IS TextSize
+     }
+    }
+    appearance USE UI_TAB_BUTTON_T_COLOR
+   }
+   DEF UI_TAB_BUTTON_SCRIPT Script {
+    field SFNode rect USE UI_TAB_BUTTON_SR
+    field SFNode app_back_sel USE UI_TAB_BUTTON_APP_OVER
+    field SFNode app_back USE UI_TAB_BUTTON_APP_BACK
+    field SFNode st USE UI_TAB_BUTTON_ST
+    field SFNode t_color USE UI_TAB_BUTTON_T_COLOR
+    field SFNode t_color_sel USE UI_TAB_BUTTON_T_COLOR_SEL
+    field SFInt32 TabIndex -1
+    
+    eventIn SFInt32 setTabIndex IS TabIndex
+    
+    eventIn SFBool OnSelect IS Select
+    eventIn SFBool OnActive
+    eventIn SFBool OnDeselect IS Deselect
+    
+    
+    eventOut SFBool DoSelect IS isSelected
+    eventOut SFInt32 SelectedTab IS SelectedTab
+    
+    url ["javascript:
+    
+     function setTabIndex(value) 
+     {
+      TabIndex = value;
+     }
+    
+     function OnActive(value)
+     {
+      if ( value )
+      {
+       rect.appearance = app_back_sel;
+       st.appearance = t_color_sel;
+       DoSelect = true;
+       SelectedTab = TabIndex;
+      }
+     }
+     function OnDeselect(value)
+     {
+      if (!value) return;
+      rect.appearance = app_back;
+      st.appearance = t_color;
+      DoSelect = false;
+     }
+     
+     function OnSelect(value)
+     {
+      if (!value) return;
+      OnActive(value);
+     }
+    "]
+   }
+  ]
+ }
+ ROUTE UI_TAB_BUTTON_TS.isActive TO UI_TAB_BUTTON_SCRIPT.OnActive
+}
+
+PROTO UI_TAB_LAYER [
+	exposedField SFVec2f Pos 0 0
+	exposedField SFVec2f BckImage_TRANS 0 0
+	exposedField SFVec2f Size 480 650
+	exposedField MFString BckImage ""
+	exposedField MFNode children
+]
+{
+	Transform2D {
+		translation IS Pos
+		children[
+			# Layer2D {
+				# background Background2D { backColor 0 0 0 }
+				# children [
+					Transform2D {
+						translation IS BckImage_TRANS
+						children [
+							Shape {
+								geometry Rectangle {
+									size IS Size
+								}
+								appearance DEF UI_TAB_BUTTON_TAB_LAYER_IMAGE Appearance {
+									texture ImageTexture {
+										url IS BckImage
+									}
+									material DEF UI_TAB_BUTTON_MAT_LINE Material2D {
+										lineProps LineProperties {
+											width 0
+										}
+									}
+								}
+							}
+						]
+					}
+					OrderedGroup {
+						children IS children
+						}
+				# ]
+			# }
+		]
+	}
+}
+
+PROTO UI_TAB_PROTO [
+	exposedField SFVec2f Pos 0 0
+	exposedField SFVec2f Size 480 800
+	exposedField SFVec2f LAYER_BUTTON_SIZE 480 81
+	exposedField SFVec2f LAYER_TABS_SIZE 	480 719
+	exposedField SFInt32 ButtonHeight 81
+	exposedField MFNode tabButtons 
+	exposedField MFNode tabLayers
+	exposedField SFBool tabButtonAutosize false 
+	exposedField SFInt32 tabButtonLocation 0
+	exposedField SFInt32 CurrentTab -1	
+]
+{
+	Transform2D {
+		translation IS Pos
+		children [
+			DEF UI_TAB_PROTO_MAIN_LAYOUT Layout {
+				topToBottom FALSE
+				horizontal FALSE
+				size IS Size
+				justify ["BEGIN" "BEGIN"]
+				children [
+					DEF LAYER_TABS Layer2D {
+						size IS LAYER_TABS_SIZE
+						children[
+							DEF UI_TAB_PROTO_SWITCH Switch {
+							   whichChoice IS CurrentTab
+							   children IS tabLayers					   
+							}							
+						]
+					}
+					DEF UI_TAB_PROTO_LAYER_BUTTONS Layer2D {
+						size IS LAYER_BUTTON_SIZE
+						children IS tabButtons	
+					}	
+					
+				]
+		   }
+		   DEF UI_TAB_PROTO_SCRIPT Script {
+				field MFNode items IS tabButtons							  
+				field SFNode scr USE UI_TAB_PROTO_SCRIPT 
+				field SFNode selected USE UI_TAB_PROTO_SWITCH
+				field SFNode ml USE UI_TAB_PROTO_MAIN_LAYOUT
+				field SFNode lb USE UI_TAB_PROTO_LAYER_BUTTONS
+
+				# field SFNode lt USE LAYER_TABS
+				field SFInt32 bh IS ButtonHeight
+				field SFBool auto IS tabButtonAutosize
+				
+				eventIn SFInt32 SetBtnLoc IS tabButtonLocation
+				eventIn SFVec2f setSize IS Size
+				
+				field SFInt32 prevBtnLoc 0
+				
+				url ["javascript:
+					function initialize()
+					{
+						for ( i = 0; i < items.length; i++ )
+							for ( j = 0; j < items.length; j++ )
+							{
+								if ( i == j)
+								{
+									items[i].TabIndex = i;
+									Browser.addRoute(items[i], 'SelectedTab', selected, 'whichChoice');
+								}
+								else
+								{
+									Browser.addRoute(items[i], 'isSelected', items[j], 'Deselect');
+								}
+							}
+						# if ( items.length > 0 )
+							# items[0].Select = true;
+					}
+					
+					function setSize ( value )
+					{
+						lb.size = new SFVec2f ( value.x, bh );
+						# lt.size = new SFVec2f ( value.x, value.y - bh );
+						
+						if ( auto )
+						{
+							
+							buttonWidth = value.x / items.length;
+							for ( i = 0; i < items.length; i++ )
+							{
+								items[i].Pos = new SFVec2f ( - value.x/2 + buttonWidth/2 + buttonWidth * i, 0 );
+								items[i].Size = new SFVec2f ( buttonWidth, bh );
+							}
+						}
+					}
+					
+					function SetBtnLoc(value)
+					{
+						if ( prevBtnLoc == value )
+							return;
+						prevBtnLoc = value;
+						t = ml.children[0];
+						ml.children[0] = ml.children[1];
+						ml.children[1] = t;
+					}
+			   "]
+		   }
+		]				   
+	}
+}
+
+#
+# TEXT
+# used for license and help text -> multiple paragraphs
+PROTO LAYER2D_TEXT [
+	exposedField SFVec2f 	Transform2D_translation 	0 0
+	exposedField SFFloat 	Transform2D_rotationAngle 	0.0
+	exposedField SFVec2f 	Transform2D_scale 			1, 1
+	exposedField SFBool 	Layout_wrap 				TRUE
+	exposedField SFVec2f 	Layout_size 				80 50
+	exposedField SFBool 	Layout_horizontal 			TRUE
+	exposedField MFString 	Layout_justify				["BEGIN, FIRST"]
+	exposedField SFBool 	Layout_leftToRight 			TRUE
+	exposedField SFBool 	Layout_topToBottom 			TRUE
+	exposedField SFFloat 	Layout_spacing 				1.0
+	exposedField MFString 	Text_string ""
+	exposedField MFString 	FontStyle_family 			["ARIAL"]
+	exposedField SFBool 	FontStyle_horizontal 		TRUE
+	exposedField MFString 	FontStyle_justify 			["BEGIN"]
+	exposedField SFString 	FontStyle_language 			""
+	exposedField SFBool 	FontStyle_leftToRight 		TRUE
+	exposedField SFFloat 	FontStyle_size 				16.0
+	exposedField SFFloat 	FontStyle_spacing 			1.1
+	exposedField SFString 	FontStyle_style 			"PLAIN"
+	exposedField SFBool 	FontStyle_topToBottom 		TRUE
+	exposedField SFColor 	Material2D_emissiveColor 	0.8, 0.8, 0.8
+	exposedField SFBool 	Material2D_filled 			TRUE
+	exposedField SFFloat 	Material2D_transparency 	0.0
+] 
+{
+	Transform2D {
+		translation 	IS Transform2D_translation
+		rotationAngle	IS Transform2D_rotationAngle
+		scale 			IS Transform2D_scale
+		children [
+			Layer2D {
+				size IS Layout_size
+				children [
+					Layout {
+						wrap 		IS Layout_wrap
+						size 		IS Layout_size
+						horizontal 	IS Layout_horizontal
+						justify 	IS Layout_justify
+						leftToRight IS Layout_leftToRight
+						topToBottom IS Layout_topToBottom
+						spacing		IS Layout_spacing
+						
+						children [
+							Shape {
+								geometry Text {
+									string 	IS Text_string
+									fontStyle FontStyle { 
+										family       IS FontStyle_family
+										horizontal   IS FontStyle_horizontal
+										justify      IS FontStyle_justify
+										language     IS FontStyle_language
+										leftToRight  IS FontStyle_leftToRight
+										size         IS FontStyle_size
+										spacing      IS FontStyle_spacing
+										style        IS FontStyle_style
+										topToBottom  IS FontStyle_topToBottom
+									}
+								}
+								appearance Appearance {
+									material Material2D {
+										emissiveColor 	IS Material2D_emissiveColor
+										transparency 	IS Material2D_transparency
+										filled 			IS Material2D_filled
+									}
+								}
+							}
+						]
+					}
+				]
+			}
+		]
+	}
+}
+
+
+#
+# TEXT
+#
+PROTO TEXT [
+	exposedField SFVec2f 	Transform2D_translation 	0 0
+	exposedField SFFloat 	Transform2D_rotationAngle 	0.0
+	exposedField SFVec2f 	Transform2D_scale 			1, 1
+	exposedField SFBool 	Layout_wrap 				TRUE
+	exposedField SFVec2f 	Layout_size 				80 50
+	exposedField SFBool 	Layout_horizontal 			TRUE
+	exposedField MFString 	Layout_justify				["BEGIN, FIRST"]
+	exposedField SFBool 	Layout_leftToRight 			TRUE
+	exposedField SFBool 	Layout_topToBottom 			TRUE
+	exposedField SFFloat 	Layout_spacing 				1.0
+	exposedField MFString 	Text_string ""
+	exposedField MFString 	FontStyle_family 			["ARIAL"]
+	exposedField SFBool 	FontStyle_horizontal 		TRUE
+	exposedField MFString 	FontStyle_justify 			["BEGIN"]
+	exposedField SFString 	FontStyle_language 			""
+	exposedField SFBool 	FontStyle_leftToRight 		TRUE
+	exposedField SFFloat 	FontStyle_size 				16.0
+	exposedField SFFloat 	FontStyle_spacing 			1.1
+	exposedField SFString 	FontStyle_style 			"PLAIN"
+	exposedField SFBool 	FontStyle_topToBottom 		TRUE
+	exposedField SFColor 	Material2D_emissiveColor 	0.8, 0.8, 0.8
+	exposedField SFBool 	Material2D_filled 			TRUE
+	exposedField SFFloat 	Material2D_transparency 	0.0
+] 
+{
+	Transform2D {
+		translation 	IS Transform2D_translation
+		rotationAngle	IS Transform2D_rotationAngle
+		scale 			IS Transform2D_scale
+		children [
+			Layout {
+				wrap 		IS Layout_wrap
+				size 		IS Layout_size
+				horizontal 	IS Layout_horizontal
+				justify 	IS Layout_justify
+				leftToRight IS Layout_leftToRight
+				topToBottom IS Layout_topToBottom
+				spacing		IS Layout_spacing
+				
+				children [
+					Shape {
+						geometry Text {
+							string 	IS Text_string
+							fontStyle FontStyle { 
+								family       IS FontStyle_family
+								horizontal   IS FontStyle_horizontal
+								justify      IS FontStyle_justify
+								language     IS FontStyle_language
+								leftToRight  IS FontStyle_leftToRight
+								size         IS FontStyle_size
+								spacing      IS FontStyle_spacing
+								style        IS FontStyle_style
+								topToBottom  IS FontStyle_topToBottom
+							}
+						}
+						appearance Appearance {
+							material Material2D {
+								emissiveColor 	IS Material2D_emissiveColor
+								transparency 	IS Material2D_transparency
+								filled 			IS Material2D_filled
+							}
+						}
+					}
+				]
+			}
+		]
+	}
+}
+
+#
+# IMAGE
+#
+PROTO IMAGE [
+	exposedField SFVec2f 	Transform2D_translation 	0 0
+	exposedField SFFloat 	Transform2D_rotationAngle 	0.0
+	exposedField SFVec2f 	Transform2D_scale 			1, 1
+	exposedField MFString 	ImageTexture_url			[]
+	exposedField SFVec2f	Rectangle_size				100 60
+] 
+{
+	Transform2D {
+		translation 	IS Transform2D_translation
+		rotationAngle	IS Transform2D_rotationAngle
+		scale 			IS Transform2D_scale
+		children [
+			Shape {
+				appearance Appearance {
+					texture ImageTexture {
+						url IS ImageTexture_url
+					}
+					material Material2D {
+						lineProps LineProperties {
+							width 0
+						}
+					}
+				}
+				geometry Rectangle {
+					size IS Rectangle_size
+				}
+			}				
+		]
+	}
+}
+
+
+PROTO INTERNET_CONNECTION [
+	exposedField SFVec2f translation 20 320
+	exposedField SFTime checkInterval 5
+	exposedField SFBool internet FALSE
+	exposedField SFVec2f iconSize 100 100
+	exposedField MFString 	imgOff	"48"
+	exposedField MFString 	imgOn	"49"
+]
+{
+	Transform2D {
+		children [
+			DEF NET_TS TimeSensor {
+				loop TRUE
+				cycleInterval IS checkInterval
+			}
+			# start counting when conection lost
+			# if the check interval and still no connection then
+			# the connection was lost for sure -> eventOut
+			DEF CHECK_TIMER TimeSensor {
+				loop FALSE
+				cycleInterval 3
+				enabled TRUE
+			}
+			Transform2D {
+				translation IS translation
+				children [
+					DEF SW Switch {
+						whichChoice 0
+						choice [
+							IMAGE {
+								ImageTexture_url IS imgOff
+								Rectangle_size IS iconSize
+							}
+							IMAGE {
+								ImageTexture_url IS imgOn
+								Rectangle_size IS iconSize
+							}
+						]
+					}
+				]
+			}
+			DEF SCRIPT Script {
+				field SFNode sw USE SW
+				field SFNode checker USE CHECK_TIMER
+				eventIn SFTime check_internet
+				eventIn SFBool checkDone
+				eventOut SFBool internet IS internet
+				url ["javascript:
+					function initialize() {
+						internet = false;
+						tmpInternet = false;
+					}
+					function check_internet() {
+						xmlhttp=new XMLHttpRequest();
+						xmlhttp.onreadystatechange = checkInternet;
+						xmlhttp.open('GET', 'http://www.google.com', true);
+						xmlhttp.send();
+					}
+					
+					function checkInternet() {
+						if (xmlhttp.readyState==1 && xmlhttp.status==0) {
+							checker.startTime = gpac.get_scene_time();
+							tmpInternet = false;
+						}
+						else if (xmlhttp.readyState==4 && xmlhttp.status==200) {
+							internet = true;
+							tmpInternet = true;
+							sw.whichChoice = 1;
+							checker.stopTime = gpac.get_scene_time();
+						}
+					}
+					
+					function checkDone(val, ts) {
+						if (val) return;
+						if (ts-checker.startTime < 1) return;
+						if (tmpInternet == false) {
+							sw.whichChoice = 0;
+							internet = false;
+						}
+					}	
+				"]
+			}
+		]
+	}
+	ROUTE NET_TS.cycleTime TO SCRIPT.check_internet
+	ROUTE CHECK_TIMER.isActive TO SCRIPT.checkDone
+}
+
+#
+# BUTTON
+#
+PROTO BUTTON [
+	exposedField SFVec2f 	Transform2D_translation 	0 0
+	exposedField SFFloat 	Transform2D_rotationAngle 	0.0
+	exposedField SFVec2f 	Transform2D_scale 			1, 1
+	exposedField SFVec2f 	Rectangle_size 				0 0
+	exposedField MFString 	ImageTexture_BackImage 		""
+	exposedField MFString 	ImageTexture_OverImage 		""
+	exposedField MFString 	Text_Text 					""
+	exposedField SFColor 	Material2D_TextColor 		1 1 1
+	exposedField SFFloat 	FontStyle_TextSize 			18
+	exposedField SFColor 	Material2D_OverColor 		0 0 0
+	exposedField SFColor 	Material2D_BackColor 		1 1 1
+	exposedField MFString 	FontStyle_Family 			["ARIAL"]
+	exposedField SFVec2f	Layout_size					-1 -1
+	eventOut 	 SFBool 	onClick
+	eventIn 	 SFBool 	doClick
+] 
+{
+	DEF TR Transform2D {
+		translation 	IS Transform2D_translation
+		rotationAngle	IS Transform2D_rotationAngle
+		scale 			IS Transform2D_scale
+		children [
+			Shape {
+				appearance DEF BColor Appearance {
+					material Material2D {
+						emissiveColor IS Material2D_BackColor
+						filled TRUE
+					}
+				}
+			}
+			Shape {
+				appearance DEF OColor Appearance {
+					material Material2D {
+						emissiveColor IS Material2D_OverColor
+						filled TRUE
+					}
+				}
+			}
+			Shape {
+				appearance DEF APP_BACK Appearance {
+					texture ImageTexture {
+						url IS ImageTexture_BackImage
+					}
+					material DEF MAT_LINE Material2D {
+						lineProps DEF LINE_PROP LineProperties {
+							width 0
+						}
+					}
+				}
+			}
+			Shape {
+				appearance DEF APP_OVER Appearance {
+					texture ImageTexture {
+						url IS ImageTexture_OverImage
+					}
+					material USE MAT_LINE
+				}
+			}
+			DEF TS TouchSensor {}
+			DEF SR Shape {
+				geometry Rectangle {
+						size IS Rectangle_size
+				}
+				appearance USE APP_BACK
+			}
+			DEF LAYOUT Layout {
+				size IS Layout_size
+				wrap TRUE
+				justify 	["MIDDLE" "FIRST"]
+				children [
+					DEF ST Shape {
+						geometry DEF TX Text {
+							string IS Text_Text
+							fontStyle FontStyle {
+								justify		["MIDDLE"]
+								size 		IS FontStyle_TextSize
+								family 		IS FontStyle_Family
+							}
+						}
+						appearance Appearance {
+							material DEF MT Material2D {
+								emissiveColor 	IS Material2D_TextColor
+								filled 			true
+							}
+						}
+					}
+				]
+			}
+			DEF SCRIPT Script {
+				field SFNode overColor 	USE OColor
+				field SFNode backColor 	USE BColor
+				field SFNode rect 			USE SR
+				field SFNode app_over 		USE APP_OVER
+				field SFNode app_back 		USE APP_BACK
+				field SFNode layout		USE LAYOUT
+				field SFBool Active 		false
+				field SFBool CanClick 		true
+				eventIn SFBool Click 		IS doClick
+				eventIn SFBool OnActive
+				eventIn SFBool OnOver
+				eventIn MFString 	setImgButtonBack 	IS ImageTexture_BackImage
+				eventIn MFString 	setImgButtonOver 	IS ImageTexture_OverImage
+				eventIn MFString 	setText 			IS Text_Text
+				eventIn	SFVec2f 	setLayoutSize		IS Layout_size
+				eventIn	SFVec2f	setRectangleSize	IS Rectangle_size
+				eventOut SFBool DoClick IS onClick
+				
+				url ["javascript:
+					function initialize() {
+						text = false;
+						layoutSize = new SFVec2f (-1, -1);
+						if (app_back.texture.url[0] != '') {
+							back = app_back;
+						}
+						else {
+							back = backColor;
+							rect.appearance = back;
+						}
+						
+						if (app_over.texture.url[0] != '') {
+							over = app_over;
+						}
+						else {
+							over = overColor;
+						}
+					}
+					# if the size of the layout was not implicitly defined yet,
+					# use the size of the rectangle (button) to set it. (layout size == rectangle size)
+					# This step is mandatory otherwise the map container will be shifted away because
+					# both the map instance and the buttons (zoom buttons in this case) contain layouts =>
+					# layout in layout as the buttons are inside the map layout => auto positioning of the map layout
+					# computed by the player because of the layout hierarchy
+					function setRectangleSize(rSize) {
+						if (!isDefault(layoutSize)) {
+							return;
+						}
+						if (!isDefault(rSize)) {
+							layout.size = new SFVec2f (rSize.x, rSize.y);
+						}
+					}
+					
+					function setImgButtonBack(val) {
+						if (val[0] != '') {
+						   back = app_back;
+						   rect.appearance = back;
+						} 
+					}
+					function setImgButtonOver(val) {
+						if (val[0] != '') {
+						   over = app_over;
+						} 
+					}
+
+					function setLayoutSize(lSize) {
+					#	print ('[ BUTTON ]: Set layout size: ' + lSize);
+						layoutSize = new SFVec2f (lSize.x, lSize.y);
+						layout.size = layoutSize;
+					}
+					
+					function setText(txt) {
+					#	print ('[ BUTTON ]: Set text: ' + txt);
+						text = txt;
+						if (!isDefault(layoutSize)) {
+							layout.size = layoutSize;
+						}
+					}
+					
+					function OnActive(value, timestamp) {
+						Active = value;
+						if ( value )
+						{
+							rect.appearance = over;
+							CanClick = true;
+						}
+						else
+						{
+							rect.appearance = back;
+							if ( CanClick )
+							{
+								DoClick = true;
+							}
+						}
+					}
+					function OnOver(value) {
+						if ( Active && value )
+						{
+							CanClick = true;							
+						}
+						else
+						{
+							CanClick = false;
+						}
+					}
+					function Click(value) {
+						if ( !value ) return;
+						DoClick = true;
+					}
+					
+					function isDefault(vect2f) {
+						return (vect2f.x == -1 && vect2f.y == -1);
+					}
+
+				"]
+			}
+		]
+	}
+	ROUTE TS.isActive TO SCRIPT.OnActive
+	ROUTE TS.isOver TO SCRIPT.OnOver
+}
+
+#
+# PROTO TO RENDER DIALOG BOXES
+#
+PROTO DIALOG [
+    exposedField MFString dialog_title 'Time is up...'
+    exposedField MFString dialog_text  'Be prepared for battle!'
+    exposedField MFString button_text  'Fight'
+    exposedField SFVec2f translation 0 0 
+    exposedField SFInt32 visible 0 
+
+    eventOut    SFBool accept
+]{
+    DEF DG_SW Switch {
+        whichChoice IS visible
+        choice [
+            DEF DG Transform2D {
+                translation IS translation
+                children [
+                    
+                    Shape {
+                        appearance Appearance {
+                            texture ImageTexture { url "56" }
+                        }
+                        geometry Rectangle {
+                            size 250 200 
+                        }
+                    }
+                    
+                    DEF TITLE TEXT {
+                        Transform2D_translation 0 50 
+                        Layout_size 120 50 
+                        Material2D_emissiveColor 1 0 0
+                        Text_string IS dialog_title
+                        FontStyle_size 20.0
+                    }
+                    DEF MSG TEXT {
+                        Transform2D_translation 0 0 
+                        Layout_size 150 50 
+                        Material2D_emissiveColor 0.2 0.1 0.1
+                        Text_string IS dialog_text
+                        FontStyle_size 20.0
+                    }
+                    
+                    DEF BTN BUTTON {
+                        Text_Text IS button_text
+                        Rectangle_size 100 30 
+                        Transform2D_translation 0 -50 
+                        ImageTexture_BackImage "58"
+                        ImageTexture_OverImage "57"
+                    }
+                ]
+            }
+        ]
+    }
+
+    DEF DIALOG_SCRIPT Script {
+        eventOut SFBool accepting IS accept
+        eventIn  SFBool onClose
+
+        field SFNode visible USE DG_SW
+
+        url [" javascript:
+            function onClose(value) {
+                print('Accepting Dialog');
+                visible.whichChoice = -1;
+                accepting = true;
+            }
+        "]
+    }
+    ROUTE BTN.onClick TO DIALOG_SCRIPT.onClose
+}
+
+######################## END GAME'S FIRST STAGE PROTOS #####################################################
+
+OrderedGroup {
+	children [
+		Background2D {
+			backColor 0 0 0
+		}
+		#
+		# AUDIOS
+		#
+		DEF AUDIO_NEXT AUDIO {
+			A_URL "801"
+		}
+		DEF IMG_DETECTED AUDIO {
+			A_URL "802"
+		}
+		DEF IMG_ALREADY_DETECTED AUDIO {
+			A_URL "803"
+		}
+		DEF SLIDING_SCORE AUDIO {
+			A_URL "806"
+		}
+		DEF BUTTON_CLICK AUDIO {
+			A_URL "807"
+		}
+		DEF TURN_PAGE AUDIO {
+			A_URL "811"
+		}
+		DEF BUTTON_CANCEL AUDIO {
+			A_URL "808"
+			A_INTENSITY 0.2
+		}
+		DEF BUTTON_GOT_IT AUDIO {
+			A_URL "809"
+			A_INTENSITY 0.2
+		}
+		DEF NOT_ENOUGH AUDIO {
+			A_URL "810"
+			A_INTENSITY 0.05
+		}
+		
+		DEF TS_TEXT_SIZE TimeSensor {
+			cycleInterval 0.5
+			loop FALSE
+			enabled TRUE
+		}
+		#
+		# LOOV SCORE RELATED NODES: TIMESENSOR + POSITION INTERPOLATORS
+		#
+		DEF TS_SHOW_LOOV_INFO TimeSensor {
+			cycleInterval 0.5
+			loop FALSE
+			enabled FALSE
+		}
+		DEF TS_HIDE_LOOV_INFO TimeSensor {
+			cycleInterval 3
+			loop FALSE
+			enabled FALSE
+		}
+		DEF TS_TRIGGER_HIDE_LOOV_INFO TimeSensor {
+			cycleInterval 3
+			loop FALSE
+			enabled FALSE
+		}
+		DEF PI_SHOW_LOOV_INFO PositionInterpolator2D {
+			key [0 1]
+			keyValue [250 0 150 0]
+		}
+		DEF PI_HIDE_LOOV_INFO PositionInterpolator2D {
+			key [0 1]
+			keyValue [150 0 250 0]
+		}
+		#
+		# COLLECT BUTTON RELATED NODES: TIMESENSOR + POSITION INTERPOLATORS
+		#
+		DEF TS_SHOW_COLLECT_BUTTON TimeSensor {
+			cycleInterval 0.3
+			loop FALSE
+			enabled FALSE
+		}
+		DEF TS_HIDE_COLLECT_BUTTON TimeSensor {
+			cycleInterval 0.3
+			loop FALSE
+			enabled FALSE
+		}
+		DEF PI_SHOW_COLLECT_BUTTON PositionInterpolator2D {
+			key [0 1]
+			keyValue [-290 -325 -200 -335]
+		}
+		DEF PI_HIDE_COLLECT_BUTTON PositionInterpolator2D {
+			key [0 1]
+			keyValue [-200 -325 -290 -335]
+		}
+		
+		DEF TEXT_INTERPOLATOR ScalarInterpolator {
+			key [0 1]
+			keyValue [5 18]
+		}
+		#
+		# ERROR MESSAGE TIMER
+		#
+		DEF TS_HIDE_ERROR_MESSAGE TimeSensor {
+			cycleInterval 5
+			loop FALSE
+			enabled FALSE
+		}
+		#
+		# CHECK DEVICE FOR VELOCITY SENSOR
+		#
+		DEF TS_CHECK_SENSORS TimeSensor {
+			cycleInterval 5
+			loop FALSE
+			enabled TRUE
+		}
+		#
+		# COLLECT TIMER
+		#
+		DEF TS_COLLECT_TIMER TimeSensor {
+			cycleInterval 1
+			loop TRUE
+			enabled FALSE
+		}
+		#
+		# SCORE TIMER
+		#
+		DEF QUESTION_PAGE_SCORE_TIMER TimeSensor {
+			cycleInterval 2
+			loop TRUE
+			enabled FALSE
+		}
+		#
+		# WAIT TIMER
+		#
+		DEF PLEASE_WAIT_TIMER TimeSensor {
+			cycleInterval 5
+			loop FALSE
+			enabled FALSE
+		}
+		
+		DEF PLAYER MAP_PLAYER {
+			name "player"
+			playerChoice 1
+		}
+		DEF DUMMY_SW Switch {
+			whichChoice -1
+			choice [
+				DEF AR_VIEW_INSTANCE AR_VIEW {
+					translation 0 30
+					layerSize 500 710
+					rectangleSize 710 500
+					setPlayerPosition PLAYER_POSITION
+				}
+				# DEF HELP_PAGE IMAGE {
+					# Rectangle_size 430 730
+					# ImageTexture_url "19"
+				# }
+				DEF INTERNET_INSTANCE INTERNET_CONNECTION {
+					translation 200 330
+					iconSize 50 50
+					checkInterval 7
+				}
+				
+				DEF HELP_PAGE OrderedGroup {
+					children [
+						TEXT {
+							Transform2D_translation 10 300
+							Text_string "Aide"
+							Layout_size 100 50
+							FontStyle_size 30
+							Material2D_emissiveColor $DB5959
+						}
+						TEXT {
+							Transform2D_translation 0 170
+							Text_string "Collectez des brevets lors du forum de la création d'entreprise organisé le 14 juin à la Chambre de commerce et d'industrie de l'Essonne par le réseau CREE. Pour faire ça, vous devez rencontrer des experts. A la fin de ses rencontres, chaque interlocuteur vous montrera une image."
+							Layout_size 430 200
+							FontStyle_size 18
+						}
+						IMAGE {
+							Transform2D_translation -170 80
+							ImageTexture_url "301"
+							Rectangle_size	90 60
+						}
+						IMAGE {
+							Transform2D_translation -60 80
+							ImageTexture_url "302"
+							Rectangle_size	90 60
+						}
+						IMAGE {
+							Transform2D_translation 50 80
+							ImageTexture_url "303"
+							Rectangle_size	90 60
+						}
+						IMAGE {
+							Transform2D_translation 160 80
+							ImageTexture_url "304"
+							Rectangle_size	90 60
+						}
+						TEXT {
+							Transform2D_translation 0 -90
+							Text_string "Une fois que vous avez scanné l'image, vous pourrez voir devant vous le brevet que vous pouvez collecter en appuyant sur le bouton « parchemin ». Ensuite vous pouvez aller vers l'expert suivant."
+							Layout_size 430 200
+							FontStyle_size 18
+						}
+						TEXT {
+							Transform2D_translation 0 -180
+							Text_string "Dès que vous accumulez 5 brevets, votre ID unique va être affiché sur votre écran. Vous devez l'écrire sur les deux papiers qui vous ont été donnés et mettre un des papiers dans l'urne pour le tirage au sort."
+							Layout_size 430 150
+							FontStyle_size 18
+						}
+						TEXT {
+							Transform2D_translation 0 -290
+							Text_string "Vous devez totaliser au moins 5 « brevets » pour participer au tirage final."
+							Layout_size 430 150
+							FontStyle_size 18
+						}
+					]
+				}
+				DEF BACKGROUND_IMAGE IMAGE {
+					ImageTexture_url "41"
+					Rectangle_size 480 800
+				}
+				DEF BACKGROUND_IMAGE_CENTER IMAGE {
+					Transform2D_translation 0 -35
+					ImageTexture_url "42"
+					Rectangle_size 450 730
+				}
+				DEF YOURID TEXT {
+					Transform2D_translation 0 0
+					Layout_size 100 100
+					FontStyle_size 28
+					Material2D_emissiveColor $FF0000
+					Text_string ""
+				}
+			]
+		}
+		DEF MAIN_SWITCH Switch {
+			whichChoice 0
+			choice [
+				DEF LOOVS_AROUND_YOU Transform2D {
+					children [
+						IMAGE {
+							ImageTexture_url "9"
+							Rectangle_size 480 800
+						}
+						DEF MAIN_SCENE BUTTON {
+							Transform2D_translation 180 -370
+							FontStyle_TextSize 25
+							Material2D_TextColor 1 0 0
+							Rectangle_size 100 50
+							Layout_size 100 50
+							ImageTexture_BackImage "30"
+							ImageTexture_OverImage "31"
+						}
+					]
+				}
+				DEF TAB_VIEW Transform2D {
+					children [
+						USE BACKGROUND_IMAGE
+						DEF BG_IMG_CENTER_SW Switch {
+							whichChoice 0
+							choice [
+								USE BACKGROUND_IMAGE_CENTER
+							]
+						}
+                                        
+						DEF TABS UI_TAB_PROTO {
+							Pos 0 0
+							ButtonHeight 75
+							LAYER_BUTTON_SIZE 480 75
+							LAYER_TABS_SIZE 480 720
+							tabButtons [
+								DEF PLAY_TAB UI_TAB_BUTTON {
+									Size 158 75
+									Pos -160 0
+									BackImage 			"10"
+									BackImageSelected 	"11"							
+									TextSize 24
+									TextColor $412405
+									TextColorSelected $EBFAFF
+								}
+								DEF HELP_TAB UI_TAB_BUTTON {
+									Size 158 75
+									Pos 0 0
+									BackImage 			"14"
+									BackImageSelected 	"15"										
+									TextSize 24
+									TextColor $412405
+									TextColorSelected $EBFAFF
+								}											
+
+								DEF LICENSE UI_TAB_BUTTON {
+									Size 158 75
+									Pos 160 0
+									BackImage 			"16"
+									BackImageSelected 	"17"								
+									TextSize 24
+									TextColor $412405
+									TextColorSelected $EBFAFF
+								}
+							]
+							tabLayers [
+								# #################### CAMERA MODE / PLAY #################### #
+								DEF CAMERA_LAYER Group {
+									children [
+										DEF RS REFERENCE_SIGNAL {
+											enabled FALSE
+											source ["hw://camera"]
+											referenceResources ["301", "302", "303", "304", "305", "306", "307", "308", "309", "310"]
+										}
+										USE AR_VIEW_INSTANCE
+										# display detected image (thumbnail)
+										DEF DETECTED_SHARE_SW Switch {
+											whichChoice 0
+											choice [
+												DEF SHARE_BUTTON BUTTON {
+													Transform2D_translation 210 -335
+													Rectangle_size	55 55
+													ImageTexture_BackImage "46"
+													ImageTexture_OverImage "47"
+												}
+												Transform2D {
+													translation 190 -335
+													children [
+														Shape {
+															appearance Appearance {
+																texture DEF DETECTED ImageTexture {
+																}
+																material Material2D {
+																	lineProps LineProperties {
+																		width 0
+																	}
+																}
+															}
+															geometry Rectangle {
+																size 100 60
+															}
+														}
+													]
+												}
+											]
+										}
+
+                                        DEF COLLECT_BUTTON BUTTON {
+											Transform2D_translation -320 -335
+											ImageTexture_BackImage "38"
+											ImageTexture_OverImage "38"
+											Rectangle_size 60 60
+										}
+
+										DEF LOOV_INFO Transform2D {
+											translation 350 0
+											children [
+												IMAGE {
+													Transform2D_translation 0 0				
+													ImageTexture_url		"39"	
+													Rectangle_size			125 65
+												}
+												DEF LOOV_COUNT_INFO Transform2D {
+													translation -50 0
+													children [
+														 Shape {
+															geometry Text {
+																string 	""
+																fontStyle FontStyle { 
+																	size         20
+																}
+															}
+															appearance Appearance {
+																material Material2D {
+																	emissiveColor 	1 1 0.9
+																	filled 			TRUE
+																}
+															}
+														}
+													]
+												}
+												
+												DEF LOOV_CNT_SW Switch {
+													whichChoice -1
+													choice [
+														Transform2D {
+															translation -40 -25
+															children [
+																DEF LOOV_CNT_TXT Shape {
+																	geometry Text {
+																		string 	""
+																		fontStyle FontStyle { 
+																			size         18
+																		}
+																	}
+																	appearance Appearance {
+																		material Material2D {
+																			emissiveColor 	1 0 0
+																			filled 			TRUE
+																		}
+																	}
+																}
+															]
+														}
+													]
+												}
+											]
+										}
+										
+										DEF SCANNING_SW Switch {
+											whichChoice 0
+											choice [
+												DEF SCANNING_IMG IMAGE {
+													Transform2D_translation -200 330
+													ImageTexture_url		"18"	
+													Rectangle_size			50 50
+												}
+											]
+										}
+										DEF ERROR_TEXT LAYER2D_TEXT {
+											Transform2D_translation 0 -710
+											FontStyle_size 12
+											Material2D_emissiveColor 1 1 1
+											Layout_size 300 800
+										}
+										DEF PATIENTEZ_SW Switch {
+											whichChoice -1
+											choice [
+												OrderedGroup {
+													children [
+														IMAGE {
+															Transform2D_translation 0 0				
+															ImageTexture_url		"39"	
+															Rectangle_size			200 100
+														}
+														TEXT {
+															Text_string "Wait..."
+															FontStyle_size 			30.0
+															Material2D_emissiveColor 1 1 1
+															Layout_size 150 80
+															Transform2D_translation 5 -20
+														}
+													]
+												}
+											]
+										}
+										DEF COLLECT_TIME_SW Switch {
+											whichChoice -1
+											choice [
+												OrderedGroup {
+													children [
+														IMAGE {
+															Transform2D_translation -225 0			
+															ImageTexture_url		"39"	
+															Rectangle_size			115 65
+														}
+														Transform2D {
+															translation -225 -7
+															children [
+																DEF COLLECT_TIME_INFO Shape {
+																	geometry Text {
+																		string 	""
+																		fontStyle FontStyle { 
+																			size         26
+																		}
+																	}
+																	appearance Appearance {
+																		material Material2D {
+																			emissiveColor 	1 1 1
+																			filled 			TRUE
+																		}
+																	}
+																}
+															]
+														}
+													]
+												}
+											]
+										}
+										USE INTERNET_INSTANCE
+										DEF SHOOT_BUTTON_SW Switch {
+											whichChoice -1
+											choice [
+                                                Group {
+                                                    children [
+                                                        
+                                                        DEF SHOOT_BUTTON BUTTON {
+                                                            Rectangle_size 200 200 
+                                                            Transform2D_translation 0 -200
+                                                            ImageTexture_BackImage "59"
+                                                            ImageTexture_OverImage "59"
+                                                        }
+                                                    ]
+                                                }
+											]
+										}
+                                        DEF EXPLOSION_SW Switch {
+											whichChoice -1
+											choice [
+												DEF EXPLOSION IMAGE {
+                                                    Transform2D_translation 0 120 
+													ImageTexture_url "55"
+                                                    Rectangle_size   300 300 
+                                                }
+											]
+										}
+									]
+								}
+								# #################### HELP VIEW #################### #
+								DEF HELP_LAYER Group {
+									children [
+										USE HELP_PAGE
+									]
+								}
+								# #################### STOCK VIEW #################### #
+								DEF STOCK_LAYER OrderedGroup {
+									children [
+										DEF USER_ID_PAGE_SW Switch {
+											whichChoice 0
+											choice [
+												OrderedGroup {
+													children [
+														DEF STOCK_MESSAGE TEXT {
+															Transform2D_translation 0 270
+															Layout_size 400 100
+															FontStyle_size 24
+															Material2D_emissiveColor 1 1 1
+															Text_string "You don't have any brevets yet."
+														}
+														DEF STOCK_ITEMS OrderedGroup {
+															children [
+																IMAGE {
+																	Transform2D_translation -100 180		
+																	Rectangle_size			130 90
+																	ImageTexture_url		"51"
+																}
+																IMAGE {
+																	Transform2D_translation -100 70
+																	Rectangle_size			130 90
+																	ImageTexture_url		"51"
+																}
+																IMAGE {
+																	Transform2D_translation -100 -40
+																	Rectangle_size			130 90
+																	ImageTexture_url		"51"
+																}
+																IMAGE {
+																	Transform2D_translation -100 -150
+																	Rectangle_size			130 90
+																	ImageTexture_url		"51"
+																}
+																IMAGE {
+																	Transform2D_translation -100 -260
+																	Rectangle_size			130 90
+																	ImageTexture_url		"51"
+																}
+																IMAGE {
+																	Transform2D_translation 100 180
+																	Rectangle_size			130 90
+																	ImageTexture_url		"51"
+																}
+																IMAGE {
+																	Transform2D_translation 100 70
+																	Rectangle_size			130 90
+																	ImageTexture_url		"51"
+																}
+																IMAGE {
+																	Transform2D_translation 100 -40
+																	Rectangle_size			130 90
+																	ImageTexture_url		"51"
+																}
+																IMAGE {
+																	Transform2D_translation 100 -150
+																	Rectangle_size			130 90
+																	ImageTexture_url		"51"
+																}
+																IMAGE {
+																	Transform2D_translation 100 -260
+																	Rectangle_size			130 90
+																	ImageTexture_url		"51"
+																}
+															]
+														}
+														DEF SHOW_ID Switch {
+															whichChoice -1
+															choice [
+																Transform2D {
+																	children [
+																		TEXT {
+																			Transform2D_translation 0 -365
+																			Layout_size 200 100
+																			FontStyle_size 26
+																			Material2D_emissiveColor 1 1 1
+																			Text_string "Votre ID: "
+																		}
+																		Transform2D {
+																			translation 60 -365
+																			children [
+																				USE YOURID
+																			]
+																		}
+																	]
+																}
+															]
+														}
+													]
+												}
+												DEF USER_INFORM_PAGE Transform2D {
+													children [
+														IMAGE {
+															Transform2D_translation 0 0
+															Rectangle_size			460 710
+															ImageTexture_url		"54"
+														}
+														IMAGE {
+															Transform2D_translation 0 240
+															Rectangle_size			230 160
+															ImageTexture_url		"52"
+														}
+														TEXT {
+															Transform2D_translation 0 30
+															Layout_size 430 200
+															FontStyle_size 24
+															Material2D_emissiveColor 1 1 1
+															Text_string "Félicitations! Maintenant vous pouvez participer au tirage au sort!"
+														}
+														IMAGE {
+															Transform2D_translation 0 -50
+															Rectangle_size			280 180
+															ImageTexture_url		"53"
+														}
+														TEXT {
+															Transform2D_translation 70 -250
+															Layout_size 400 100
+															FontStyle_size 24
+															Material2D_emissiveColor 1 1 1
+															Text_string "Votre ID: "
+														}
+														Transform2D {
+															translation 30 -247
+															children [
+																USE YOURID
+															]
+														}
+														DEF DISPLAY_STOCK_BUTTON BUTTON {
+															Transform2D_translation 0 -310
+															FontStyle_TextSize 25
+															Material2D_TextColor 1 0 0
+															Rectangle_size 150 75
+															Layout_size 100 50
+															ImageTexture_BackImage "32"
+															ImageTexture_OverImage "33"
+														}
+													]
+												}
+											]
+										}
+									]
+								}
+							]
+						}
+                        # Weapon seek timer
+                        DEF TIMER_1 TimeSensor {
+                            loop TRUE
+                            enabled FALSE
+                            #stopTime 90
+                            stopTime 5
+                        }
+                        DEF TIMER_1_TEXT TEXT {
+                            Transform2D_translation 0 300
+                            Layout_size 28 28 
+                            FontStyle_size 24
+                            Material2D_emissiveColor 0 1 0
+                            #Text_string "90"
+                            Text_string "5"
+                        }
+                        # For boss to start chasing
+                        DEF CHASE_TIMER TimeSensor {
+                            cycleInterval 5
+                            loop TRUE
+                            enabled FALSE
+                        }
+                        # Showing distance to player to boss
+                        DEF DISTANCE_TITLE TEXT {
+                            Transform2D_translation -160 20
+                            Layout_size 150 30 
+                            FontStyle_size 16
+                            Material2D_emissiveColor 0 1 0
+                            Text_string "Boss's distance"
+                        }
+                        DEF DISTANCE TEXT {
+                            Transform2D_translation -200 0
+                            Layout_size 28 28 
+                            FontStyle_size 20
+                            Material2D_emissiveColor 0 1 0
+                            Text_string "INF"
+                        }
+                        
+
+					]
+				}
+                
+										
+			]
+		}
+		
+		 DEF MONSTER_TIMER TimeSensor {
+				cycleInterval 5
+				loop TRUE
+				enabled FALSE
+        }
+		DEF EXPLOSION_TIMER TimeSensor {
+				loop FALSE
+				enabled FALSE
+        }
+			
+		DEF SCRIPT Script {
+			field SFNode thisScript			USE SCRIPT
+			field SFNode rs 				USE RS
+			field SFNode detected 			USE DETECTED
+			field SFNode player_instance    USE PLAYER
+			field SFNode ar_view 			USE AR_VIEW_INSTANCE
+			field SFNode scanning_sw		USE SCANNING_SW
+			field SFNode share_sw			USE DETECTED_SHARE_SW
+			field SFNode error_text	    	USE ERROR_TEXT
+			field SFNode main_switch		USE MAIN_SWITCH
+			field SFNode collectTimeText	USE COLLECT_TIME_INFO
+			field SFNode loov_info			USE LOOV_INFO
+			field SFNode collectSw			USE COLLECT_TIME_SW
+			field SFNode yourID			    USE YOURID
+            field SFNode timer_1            USE TIMER_1
+            field SFNode timer_1_text       USE TIMER_1_TEXT
+            field SFNode shootBtnSw 		USE SHOOT_BUTTON_SW
+
+		#
+		# AUDIOS
+		#
+			field SFNode audioNext				USE AUDIO_NEXT
+			field SFNode audioImgDetected		USE IMG_DETECTED
+			field SFNode audioImgAlreadyDet	USE IMG_ALREADY_DETECTED
+			field SFNode audioSlidingScore		USE SLIDING_SCORE
+			field SFNode audioClickButton		USE BUTTON_CLICK
+			field SFNode audioCancelButton		USE BUTTON_CANCEL
+			field SFNode audioGotIt			    USE BUTTON_GOT_IT
+			field SFNode audioNotEnough		    USE NOT_ENOUGH
+			field SFNode audioTurnPage			USE TURN_PAGE
+			
+		#
+		# LOOV COUNT INFO
+		#
+			field SFNode tsTextSize		USE TS_TEXT_SIZE
+			field SFNode tsShowLoovInfo	USE TS_SHOW_LOOV_INFO
+			field SFNode tsHideLoovInfo	USE TS_HIDE_LOOV_INFO
+			field SFNode triggerHideInfo	USE TS_TRIGGER_HIDE_LOOV_INFO
+			field SFNode loov_count_info	USE LOOV_COUNT_INFO
+			field SFNode loov_cnt_txt		USE LOOV_CNT_TXT
+			
+		#
+		# COLLECT BUTTON
+		#	
+			field SFNode tsShowCollectBut		USE TS_SHOW_COLLECT_BUTTON
+			field SFNode tsHideCollectBut		USE TS_HIDE_COLLECT_BUTTON
+		#
+		# ERROR MESSAGE
+		#
+			field SFNode rsHideErrorMessage	USE TS_HIDE_ERROR_MESSAGE
+		#
+		# COLLECT TIMER
+		#
+			field SFNode collectTimer			USE TS_COLLECT_TIMER
+		#
+		# SCORE TIMER
+		#
+			field SFNode score_timer 			USE QUESTION_PAGE_SCORE_TIMER
+		
+		#
+		# PLEASE WAIT TIMER
+		#
+			field SFNode pleaseWaitTimer		USE PLEASE_WAIT_TIMER
+			
+			field SFNode stockItems			    USE STOCK_ITEMS
+			field SFNode stockPageMessage		USE STOCK_MESSAGE
+			field SFNode showIDSW				USE SHOW_ID
+			
+			field SFNode tabs				USE TABS
+			field SFNode bgCenterSw		    USE BG_IMG_CENTER_SW
+			field SFNode patientezMsgSw	    USE PATIENTEZ_SW
+			field SFNode userIDPageSW		USE USER_ID_PAGE_SW
+			field SFNode loovCntSw			USE LOOV_CNT_SW
+            field SFNode tab_view           USE TAB_VIEW 
+            #field SFInt32 clock            90
+            field SFInt32 clock             5
+			field SFNode monsterTimer		USE MONSTER_TIMER
+			
+			eventIn	SFVec3f	    updateOrientation
+			eventIn SFVec3f 	updateAcceleration
+			eventIn SFVec3f 	updateAngularVelocity
+			
+			eventIn	SFBool		showMainView
+			
+			eventIn SFBool		removeWaitMessage
+			eventIn SFFloat 	emphasizeScore
+			eventIn	SFBool		loveInfoVisible
+			eventIn SFBool		deviceSensors
+			eventIn	SFBool		loovInfoHidden
+			eventIn	SFBool		hideErrorMessage
+			eventIn SFInt32	    tabChanged
+			eventIn MFInt32 	onInputDetected
+			eventIn SFBool 	    collectLove
+			eventIn SFTime		collectTimerCycle
+			eventIn SFBool		hideLoovInfo
+			eventIn SFBool		doShare
+			eventIn SFBool		internetConnection
+			eventIn SFBool		showStockPage
+
+            ####### First Stage timer
+            eventIn 	SFTime      decreaseTimerOne
+            eventIn 	SFTime      noTimeLeft
+            eventIn 	SFBool      timeIsUp
+            eventIn 	SFBool      nextStage
+            eventOut 	MFNode     childAdd
+            eventOut 	MFNode     childAdd1
+            eventOut 	MFNode     childRemove
+
+            
+            ####### Fight
+            eventIn 	SFBool      addBoss 
+            eventIn 	SFBool      shootMonster
+            eventOut 	SFString   	gameOver
+            eventIn		SFString	gameResult
+            eventIn 	SFTime		monsterAttacks
+			eventIn 	SFBool		activateMonsterAttack
+			eventIn 	SFBool		deactivateMonsterAttack
+            eventIn     SFFloat     hideExplosion
+            eventIn     SFString    preventPlayer   
+            
+			field 		SFNode 		monster_timer   USE MONSTER_TIMER
+            field       SFNode      explosion       USE EXPLOSION_SW
+            field       SFNode      explosion_timer USE EXPLOSION_TIMER
+            field       SFNode      distance_string USE DISTANCE
+            field       SFNode      chase_timer     USE CHASE_TIMER
+
+
+
+			url ["javascript:
+
+                function initialize() {
+					# create a fake player
+					play = true;
+					p = false;
+					setDefaultMessages();
+					lastAcceleration	= new SFVec3f (0, 0, 0);
+					arFirstTimeDisplay	= true;
+					# default loovCount and userVisit values
+					defaultValue		= -100;
+					userLoovCnt			= defaultValue;
+					userVisited			= defaultValue;
+					userGuns			= defaultValue;
+					userHp				= 100;
+					PLAY_VIEW			= 0;
+					MAP_VIEW			= 1;
+					HELP_VIEW			= 2;
+					STOCK_VIEW			= 3;
+                    playerAround        = false;
+					# the base address where all requests go
+					mmwBaseAddress		= 'http://www.mymultimediaworld.com/games/brevets/';
+					xmlhttp				= new XMLHttpRequest();
+					username 			= 'default';
+				#	username 			= checkUser();
+					
+					R 					= 6371000;
+					mapCenter 			= new SFVec2f (48.625236, 2.442196);
+
+					# weapon objects
+					parts   = new Array();
+
+					minigun = new Weapon('minigun', 1, 10);
+					gun     = new Weapon('gun',2, 20);
+					shotgun = new Weapon('shotgun', 3, 30);
+				
+					# Part names
+					partNames 			= new Array('part1minigun', 'part2minigun', 
+                                                    'part1gun', 'part2gun', 
+                                                    'part1shotgun', 'part2shotgun');
+					# object descriptor IDs for each Part
+					ODID				= new Array('301', '302', '303', '304', '305', '306');
+					# ODID for corresponding thumbs
+					ODIDThumbs			= new Array('601', '602', '603', '604', '605', '606');
+					# the weapons ids corresponding to the image detected
+					weaponIds= new Array(0, 0, 1, 1, 2, 2);
+
+					createPartObjects();
+					
+					imageDetected 		= false;
+					detectedPart		= NULL;
+					deviceVelocity 		= false;
+					useAcceleration		= false;
+					grow				= true;
+				#	randomARObjectsNr	= 13;
+					# set the maximum time the user has the possibility to collect the loovs 
+					# once an image has been detected
+					time2collectLove    = 30;
+					collectTimeRemaining= time2collectLove;
+					
+					if (!p) {
+						p = new Player(username, '?', -1, -1, 100);
+					}
+
+                    boss = new Boss('Godzilla', 100, 5, -1, -1, 1); 
+
+				}
+				
+				function activateMonsterAttack(val) {
+					if (!val) return;
+					print ('monster attack activated');
+					monsterTimer.enabled = true;
+				}
+				
+				function deactivateMonsterAttack(val) {
+					if (!val) return;
+					print ('monster attack deactivated');
+					monsterTimer.enabled = false;
+				}
+
+                ######### First Stage 
+
+                # Convert SFTime to int (Check if there's an automatic one
+                function timeToInt(currentTime){
+                    timeString = currentTime.toString(); 
+                    timeInt    = parseInt(timeString);
+                    return timeInt
+                }
+                # Timer 1 decreaser
+                function decreaseTimerOne(currentTime) {
+                    timeInt     = timeToInt(currentTime);
+                    nextTime    = clock - timeInt;
+                    timer_1_text.Text_string = nextTime.toString();
+                }
+
+                # Change timer color when 10 sec left
+                function noTimeLeft(currentTime) {
+                    timeInt = timeToInt(currentTime);
+                    if (clock - timeInt < 10) 
+                    {
+                        timer_1_text.Material2D_emissiveColor = new SFColor(1, 0, 0);
+                    }
+
+                }
+
+                # Time is up! string at the end of timer 1
+                function timeIsUp(currentTime) {
+                    if (!currentTime) {
+                        # End first stage dialog
+                        dialog = new SFNode('DIALOG');
+
+                        # EventOut child
+                        childAdd  = new MFNode(dialog);
+
+          
+                        # ROUTE to close dialog
+                        Browser.addRoute(dialog, 'accept', thisScript, 'nextStage');
+                    }
+                }
+
+                # Funcion to add shoot button to interface
+                function nextStage(){
+                    # Adding shoot button
+                    # Button to shoot 
+                    shootBtnSw.whichChoice = 0;
+                    # Adding boss
+                    addBoss();
+                	print('nextStage achieved');
+                    chase_timer.enabled = true;
+                }
+
+                ############# End first stage 
+
+                ############# Second stage
+
+                #
+                # Function to decrease monster life on shoot
+                #
+                function shootMonster(){
+                	print('Shooting monster...');
+                    # This variable is set up depending on boss viewpoint!!
+                    hit = true;
+                    if (hit && play) {
+
+                        print('HIT!');
+
+                        explosion.whichChoice = 0;
+                        explosion_timer.enabled = true;
+
+                        print('----- explosion enabled -------');
+
+                        boss.hp -= p.guns[p.current].damage;
+                        p.guns[p.current].bullets--;
+
+                        if (p.guns[p.current].bullets == 0 && p.current != 0) {
+                            # Change to next weapon
+                            print ('No ammo. Next weapon!');
+                            p.current--;
+
+                        }
+
+
+                        print('Player HP: ' + p.hp);
+                        print('Boss HP: ' + boss.hp);
+
+                        if (boss.hp == 0) {
+                            print('Boss is dead! You win.');
+                            gameOver = 'P';
+                        }
+                    }
+                }
+
+                function hideExplosion(value){
+
+                    print('----------------------hidding explosion-------------------');
+                    print(value);
+                    explosion.whichChoice = -1;
+                    explosion_timer.enabled = false;
+                }
+
+
+                #
+                # Function to decrease player´s life on monster approach
+                #
+                function monsterAttacks(time){
+                	timeInt = parseInt(time.toString());
+                	if (play){
+                		print('Monster Attacking...');  
+	                    p.hp -= boss.damage;
+
+	                    if (p.hp == 0){
+	                        print('You are dead!. You loose.');
+	                        gameOver = 'B';
+	                    }
+                	}
+                    
+                }
+
+
+                function gameResult(winner){
+                    # Stop playing
+                	play = false;
+                    # Dialog for game over and results
+                    dialog = new SFNode('DIALOG');
+                    dialog.dialog_title = 'GAME OVER';
+                    dialog.button_text = 'EXIT';
+
+                	if (winner === 'P') {
+                		# Do what we need to do when player wins
+                        dialog.dialog_text = 'Well done!. You win';
+                        # Remove boss from AR_VIEW
+                        clearARView();
+
+                	} else {
+                		# Do what we need to do when boss wins
+                        dialog.dialog_text = 'You suck, you loose'
+                	}
+
+                    chase_timer.enabled = false;
+                    childAdd = new MFNode(dialog);
+                }
+                ############# End second stage
+
+	
+				
+				function setDefaultMessages() {
+					# default messages
+					dejaCollecteMsg 	= 'Vous avez déjà obtenu ce brevet!';
+					startMsg			= 'Commencez à chercher les brevets!';
+					foundLoovMsg		= ' brevet autour de vous. Appuyez sur le parchemin.';
+					wantMoreMsg			= 'Voulez-vous plus des brevets? Cherchez encore!';
+					ranOutMsg			= 'Il n\'y a plus des brevets disponibles ici.';
+					keepSearchingMsg	= 'Cherchez une autre photo...';
+					shareMsg			= 'Je viens de découvrir AR Brevet, www.mymultimediaworld.com/games/';
+					noInternetMsg		= 'Vous n\'avez pas de connexion Internet!';
+					checkInternetMsg	= 'Vérifiez votre connexion internet!'; 
+				}
+				
+				function internetConnection(val) {
+					hasInternet = val;
+					if (hasInternet) {
+						if (userLoovCnt == defaultValue | userVisited == defaultValue) {
+							getUserProgress(username);
+						}
+						
+						if (error_text.Text_string[0] == checkInternetMsg) {
+							tsTextSize.startTime = gpac.get_scene_time();
+							error_text.Text_string[0] = keepSearchingMsg;
+							error_text.Material2D_emissiveColor = new SFColor (1, 1, 1);
+						}
+					}
+				}
+				
+				function doShare() {
+					gpac.setOption('ACTION_SEND', shareMsg, '');
+				}
+# Check if the user already exists in the DB (based on his randomly generated ID)
+# and get his progress: number of loovs + parts visited (IDs)
+# otherwise store the user (the ID) in the DB		
+				function checkUser() {
+					usr = gpac.getOption('LOOV', 'username1');
+					# if the user is new, set the username variable in config
+					if (usr == '') {
+						usr = Math.random().toString(36).substr(2, 4);
+						gpac.setOption('LOOV', 'username1', usr);
+					#	storeUser(usr);
+						# and create a new Player instance
+						p = new Player(usr, 0, new Array(), new Array(), 100);
+						displayUserScoreInfo();
+					}
+					else {
+					#	getUserProgress(usr);
+					}
+					# set the ID on the Help page
+					yourID.Text_string = new MFString (' '+usr);
+					return usr;
+				}
+				
+# if the user is known get his progress: loov count and visited parts
+				function getUserProgress(name) {
+					# set 'userLoovCnt' variable when the answer is recieved
+				#	getUserLoovs(name);
+					# set 'userVisited'
+				#	getUserVisited(name);
+				}
+				
+# server request -> get user loovs
+				function getUserLoovs(name) {
+					xmlhttp_userLoov=new XMLHttpRequest();
+					xmlhttp_userLoov.onreadystatechange = getMMWUserLoovs;
+					xmlhttp_userLoov.open('GET', mmwBaseAddress+'getUserCollectedCount/'+name+'/', true);
+					xmlhttp_userLoov.send();
+				}
+				function getMMWUserLoovs() {
+					if (xmlhttp_userLoov.readyState==4 && xmlhttp_userLoov.status==200) {
+						userLoovCnt = parseFloat(parseInt(xmlhttp_userLoov.responseText));
+						if (userVisited != defaultValue) {
+							p = new Player(username, userLoovCnt, userVisited, userGuns, userHp);
+							displayUserScoreInfo();
+							updateStockPage();
+						}
+					}
+				}
+				
+# if the user played before (has already some loovs)
+# display the sliding loov info with the current number of loovs
+# UPDATE: show the loov regardless the number of loovs or if the user is known
+				function displayUserScoreInfo() {
+					loov_info.translation = new SFVec2f (250,0);
+					loovInfoHidden(false);
+				}
+				
+# server request -> get visited parts
+				function getUserVisited(name) {
+					xmlhttp_userVisited=new XMLHttpRequest();
+					xmlhttp_userVisited.onreadystatechange = getMMWUserVisited;
+					xmlhttp_userVisited.open('GET', mmwBaseAddress+'getUserVisited/'+name+'/', true);
+					xmlhttp_userVisited.send();
+				}
+				function getMMWUserVisited() {
+					if (xmlhttp_userVisited.readyState==4 && xmlhttp_userVisited.status==200) {
+						userVisited = xmlhttp_userVisited.responseText;
+						if (userLoovCnt != defaultValue) {
+							p = new Player(username, userLoovCnt, userVisited, userGuns, userHp);
+
+							displayUserScoreInfo();
+							updateStockPage();
+						}
+					}
+				}
+				
+# if the user doesn't exist (first time player)
+# send the username to the DB
+				function storeUser(name) {
+					xmlhttp=new XMLHttpRequest();
+					xmlhttp.onreadystatechange = addMMWUser;
+					xmlhttp.open('GET', mmwBaseAddress+'createUser/'+name+'/', true);
+					xmlhttp.send();
+				}
+				function addMMWUser() {
+					if (xmlhttp.readyState==4 && xmlhttp.status==200) {
+						userInserted = xmlhttp.responseText;
+					}
+				}
+#
+# CITY, PLAYER, PRODUCT CLASSES ################################################################
+#
+				function Part(name, partID, loovs, thumb, weaponId) {
+					this.name     = name;
+					this.partID   = partID;
+					this.loovs    = loovs;
+					this.thumb    = thumb;
+					this.weaponId = weaponId;
+				}
+				function Weapon (name, damage, bullets){
+					this.name    = name;
+					this.damage  = damage;
+                    this.bullets = bullets;
+				}
+				
+				function Player(name, loovs, visited, guns, hp) {
+					print ('Creating new player');
+					print ('loovs ' + loovs);
+					this.name    = name;
+					this.guns    = new Array(new Weapon('knife', 10, 1000));
+					this.hp      = hp;
+                    this.current = 0;
+
+					if (loovs != '?') {
+						this.loovs 		= parseInt(loovs);
+					}
+					else {
+						this.loovs 		= loovs;
+					}
+					# if visited is an array (',' not found)
+					if (visited == -1) {
+						this.visited	= new Array();
+					}
+					# if there is only one Part visited (one number)
+					else if (visited.indexOf(',') == -1) {
+						this.visited 	= new Array(visited);
+					}
+					else {
+						this.visited 	= visited.split(',');
+
+					}
+					
+				}
+
+                function Boss(name, hp, damage, x, y, r){
+                    print ('Creating new boss'); 
+
+                    this.name   = name;
+                    this.hp     = hp;
+                    this.damage = damage;
+                    this.xPos   = x;
+                    this.yPos   = y;
+                    this.radius = r;
+
+
+                }
+
+				
+				
+			
+#
+# ##############################################################################################
+#
+
+# Create Part objects
+				function createPartObjects() {
+					for ( i = 0; i < partNames.length; i++ ) {
+						parts[i] = new Part(partNames[i], ODID[i], 0, ODIDThumbs[i], weaponIds[i]);
+					}
+				}
+				
+# open camera when the third tab (camera view) is displayed
+# close it when the user switches to another tab view
+				function tabChanged(whichTab) {
+					playAudioNext();
+					if (whichTab == PLAY_VIEW) {
+						ar_view.openCamera = true;
+						displayUserScoreInfo();
+						updateARViewLoovs();
+						if (arFirstTimeDisplay) {
+							pleaseWaitTimer.startTime = gpac.get_scene_time();
+							pleaseWaitTimer.enabled = true;
+							patientezMsgSw.whichChoice = 0;
+							tsTextSize.startTime = gpac.get_scene_time();
+							error_text.FontStyle_size = 18;
+							error_text.Text_string[0] = startMsg;
+						}
+						bgCenterSw.whichChoice = -1;
+						arFirstTimeDisplay = false;
+					}
+					if (whichTab != PLAY_VIEW) {
+						disableRS();
+						bgCenterSw.whichChoice = 0;
+					}
+				}
+				
+# remove the error message ('Patientez...') after a while (5 seconds)
+				function removeWaitMessage(val, ts) {
+					if (val) return;
+					patientezMsgSw.whichChoice = -1;
+				}
+				
+# advance to Play view
+				function showMainView() {
+					main_switch.whichChoice = 1;
+					playAudioNext();
+					tabs.CurrentTab = PLAY_VIEW;
+					tabs.tabButtons[PLAY_VIEW].Select = true;
+                    timer_1.enabled = true;
+                    print('------ Clock is running -----')
+				}
+				
+				function playAudioNext() {
+					audioNext.A_STOP_TIME = gpac.get_scene_time()-0.1;
+					audioNext.A_START_TIME = gpac.get_scene_time();
+				}
+				function playAudioClickButton() {
+					audioClickButton.A_STOP_TIME = gpac.get_scene_time()-0.1;
+					audioClickButton.A_START_TIME = gpac.get_scene_time();
+				}
+				function playAudioNotEnough() {
+					audioNotEnough.A_STOP_TIME = gpac.get_scene_time()-0.1;
+					audioNotEnough.A_START_TIME = gpac.get_scene_time();
+				}
+
+#
+# ##############################################################################################
+#
+				
+# update the number of loovs with the global variable "loovs"
+# the function should be called whenever the user collects/buys
+				function updateARViewLoovs() {
+					loov_count_info.children[0].geometry.string[0] = '' + p.loovs;
+				}
+				
+# check if the device has "angularVelocity" sensor
+				function deviceSensors(val) {
+					if (val) return;
+					if (!deviceVelocity) {
+						useAcceleration = true;
+						return;
+					}
+				}
+
+# remove dummy ar objects				
+				function clearARView() {
+					objCnt = ar_view.ar_objects.length;
+					for ( i = 0; i < objCnt; i++ ) {
+						ar_view.removeARObjects = new MFNode (ar_view.ar_objects[0]);
+					}
+				}
+				
+                # Add Random positioned Boss
+                function addBoss() {
+                        arNode = new SFNode ('AR_OBJECT');
+						arNode.name = 'Godzilla';
+                        # DONT FORGET TO ADD RANDOM POSITION LATER
+                        x                         = player_instance.playerPosition[0] + 0.000015*4;
+                        y                         = player_instance.playerPosition[1] + 0.000020*4;
+                        arNode.position[0]        = x;
+                        arNode.position[1]        = y;
+                        arNode.position[2]        = 5;
+						arNode.objectURL          = ''+411;
+						arNode.distanceVisibility = 0;
+						arNode.objScale           = new SFVec3f (0.010, 0.010, 0.010);
+						arNode.visible            = true;
+                        
+
+                        Browser.addRoute(arNode, 'onPlayerAround', thisScript, 'activateMonsterAttack');
+						Browser.addRoute(arNode, 'onPlayerLeft', thisScript, 'deactivateMonsterAttack');
+						Browser.addRoute(monster_timer, 'time', thisScript, 'monsterAttacks');
+						Browser.addRoute(arNode, 'showDistance', thisScript, 'preventPlayer');
+						Browser.addRoute(chase_timer, 'fraction_changed', arNode, 'chasePlayer');
+
+						ar_view.addObject 	= arNode;
+						print ('arNode.position = ' + arNode.position);
+
+						print (' -------------- adding player pos to ar view ------------------ ');
+						Browser.addRoute(player_instance, 'playerPosition', ar_view, 'setPlayerPosition');
+
+                        return;
+                }
+
+                function preventPlayer(value) {
+                    distance_string.Text_string = value;
+
+                    distanceInt = parseInt(value);
+
+                    if (distanceInt <= 10) {
+                        distance_string.Material2D_emissiveColor = new SFVec3f(1,0,0);
+                    }
+
+
+
+                }
+
+               # on COLLECT BUTTON click
+				function collectLove(val, ts) {
+					# store the visited city in the player object
+					p.visited.push(detectedPart.partID);
+					if((p.visited.indexOf('301')!=-1) && (p.visited.indexOf('302')!=-1)){
+						p.guns.push(new Weapon('minigun', 100, 25));
+					}
+					if((p.visited.indexOf('303')!=-1) && (p.visited.indexOf('304')!=-1)){
+						p.guns.push(new Weapon('gun', 30, 50));
+					}
+					if((p.visited.indexOf('305')!=-1) && (p.visited.indexOf('306')!=-1)){
+						p.guns.push(new Weapon('shotGun', 60, 40));
+					}
+					print('--------------------------------------------------------------------youhouuuuu you have a gun---------------'+ p.guns[0]);
+					print ('********* [ COLLECT LOOVS! ]');
+					# play collect button sound
+					playAudioClickButton();
+					# play sliding score sound
+					audioSlidingScore.A_START_TIME = gpac.get_scene_time() + 0.2;
+					# send mmw request -> set visited
+					setUserVisited();
+					# hide last image detected
+					detectedImage('');
+					# hide collect button
+					hideCollectButton(ts);
+					loovCntSw.whichChoice = 0;
+					# change LOOV INFO text
+					loov_count_info.children[0].geometry.string[0] 	= 'Vous avez';
+					loov_count_info.children[0].geometry.string[1]  = 'déjà collecté';
+					loov_count_info.children[0].geometry.string[2]  = '       Brevets!';
+					loov_count_info.children[0].geometry.fontStyle.size 	= 16;
+					loov_count_info.translation 	= new SFVec2f (-50, 8);
+					loov_count_info.children[0].appearance.material.emissiveColor 	= new SFColor (1, 1, 1);
+					# increase the number of loovs by the current number of collected loovs
+					p.loovs += detectedPart.loovs;
+					# remove the collected AR Objects (the last AR objects added)
+					removeCollectedARObjects();
+					# display the sliding LOOV info text
+					showLoovInfo(ts);
+					print(' ********* [ COLLECTED ] Numer of Loovs collected: ' + p.LOOV);
+					# hide info message once the loovs are collected
+					hideErrorMessage();
+					# disable collect timer
+					collectTimer.stopTime = ts;
+					collectTimer.enabled = false;
+					# and hide the message (x seconds left ...)
+					hideCollectTimerMessage();
+					# display a message: "you have collected X loovs!"
+					tsTextSize.startTime = gpac.get_scene_time();
+					error_text.FontStyle_size = 18;
+					error_text.Text_string[0] = 'Vous avez collecté un Brevet!';
+					updateStockPage();
+				}
+				
+# when the user has 5 brevets the following page is displayed
+# in order to inform the user he is now eligible to participate
+# to "tirage a sort"
+				function showUserIDPage() {
+					userIDPageSW.whichChoice = 1;
+					showIDSW.whichChoice = 0;
+					tabs.CurrentTab = STOCK_VIEW;
+					tabs.tabButtons[STOCK_VIEW].Select = true;
+				}
+				
+# each time a user collects a Brevet, update the Stock page
+				function updateStockPage() {
+					if (p.loovs == 0) {
+						stockPageMessage.Text_string[0] = 'Vous n\'avez pas encore collecté de brevets!';
+						return;
+					}
+					else if (p.loovs < 5) {
+						stockPageMessage.Text_string[0] = 'Ceux-ci sont les brevets que vous détenez maintenant (' + p.loovs + '):';
+					}
+					else if (p.loovs >= 5) {
+						stockPageMessage.Text_string[0] = 'Félicitations! Maintenant vous pouvez participer au tirage au sort!';
+						showUserIDPage();
+					}
+					for (i = 0; i < p.visited.length; i++) {
+						stockItems.children[i].ImageTexture_url = (parseInt(p.visited[i]) + 100) + '';
+					}
+				}
+				
+				function showStockPage() {
+					userIDPageSW.whichChoice = 0;
+				}
+
+# MMW request: send the visited city to MMW DB
+				function setUserVisited() {
+					xmlhttp=new XMLHttpRequest();
+					xmlhttp.onreadystatechange = setMMWUserVisited;
+					xmlhttp.open('GET', mmwBaseAddress+'setUserVisited/'+username+'/'+detectedPart.partID+'/', true);
+					xmlhttp.send();
+				}
+				function setMMWUserVisited() {
+					if (xmlhttp.readyState==4 && xmlhttp.status==200) {
+						mmwUserVisited = xmlhttp.responseText;
+					}
+				}
+				
+# an image has been recongnized
+				function onInputDetected(value, ts) {
+					det = -1;
+					for ( i = 0; i < value.length; ++i ) {
+						if ( value[i] != 0 ) {
+							detectedPart = parts[i];
+							# if the city was already visited, return
+							if (p.visited.indexOf(detectedPart.partID) != -1) {
+								tsTextSize.startTime = gpac.get_scene_time();
+								error_text.FontStyle_size = 18;
+								error_text.Text_string[0] = dejaCollecteMsg;
+								triggerErrorMessageTS(ts);
+								audioImgAlreadyDet.A_START_TIME = ts;
+								return;
+							}
+							if (hasInternet) {
+								currentCityLoovs = 1;
+								detectedPart.loovs = currentCityLoovs;
+								audioImgDetected.A_START_TIME = gpac.get_scene_time();
+								# otherwise initialize det with i and 
+								# display the collect button
+								det = i;
+								showCollectButton();
+								showInfoMessage();
+								# show detected image
+								detectedImage(detectedPart.thumb);
+								clearARView();
+								addNewARObject(det, deviceOrientation);
+								collectTimeRemaining = time2collectLove;
+								return;
+							}
+							else {
+								tsTextSize.startTime = gpac.get_scene_time();
+								error_text.Text_string[0] = checkInternetMsg;
+								error_text.Material2D_emissiveColor = new SFColor (1, 0, 0);
+							}
+						}
+					}
+				}
+				
+				function showInfoMessage(ts) {
+					tsTextSize.startTime = gpac.get_scene_time();
+					error_text.FontStyle_size 	= 18;
+					error_text.Text_string[0] 	= detectedPart.loovs + foundLoovMsg;		
+					collectTimer.startTime 		= gpac.get_scene_time();;
+					collectTimer.enabled 		= true;
+					timeRemaining 				= collectTimeRemaining;
+				}
+				
+				function collectTimerCycle(val, ts) {
+					collectTimeRemaining -= 1;
+					if (collectTimeRemaining < 0) return;
+					# if the time's up (the loovs not collected within 1 minute)
+					# remove the loovs without increasing the score
+					if (collectTimeRemaining == 0) {
+						# and hide the message (x seconds left ...)
+						hideCollectTimerMessage();
+						# hide last image detected
+						detectedImage('');
+						hideCollectButton(ts);
+						removeCollectedARObjects();
+						# hide info message once the loovs are collected
+						hideErrorMessage();
+						# disable collect timer
+						collectTimer.enabled = false;
+						imageDetected = false;
+						return;
+					}
+					collectTimeText.geometry.string[0] = collectTimeRemaining + ' s';
+					collectSw.whichChoice = 0;
+				}
+				
+				function hideCollectTimerMessage() {
+					collectSw.whichChoice = -1;
+					collectTimeText.geometry.string[0] = '';
+				}
+				
+				function triggerErrorMessageTS(ts) {
+					rsHideErrorMessage.startTime 	= ts;
+					rsHideErrorMessage.enabled 		= true;
+				}
+				
+				function hideErrorMessage(val) {
+					if (val) return;
+					else {
+						tsTextSize.startTime = gpac.get_scene_time();
+						error_text.FontStyle_size = 18;
+						error_text.Text_string[0] = wantMoreMsg;
+					}
+				}
+				
+# display an image (the detected image) in the
+# "rectangle of detected image". imageURL = '' removes 
+# the detected image => set the ImageTexture URL to NULL
+				function detectedImage(imageURL) {
+					if (imageURL == '') {
+						share_sw.whichChoice = 0;
+						detected.url[0] = '';
+					}
+					else {
+						share_sw.whichChoice = 1;
+						detected.url[0] = ''+imageURL;
+						imageDetected 	= true;
+						disableRS();
+					}
+				}
+				
+# remove all the AR Objects of the AR View either because the player 
+# pressed the collect button or he run out of time
+				function removeCollectedARObjects() {
+					for (i = 0; i < detectedPart.loovs; i++) {
+						ar_view.removeARObjects = new MFNode(ar_view.ar_objects[ar_view.ar_objects.length-1]);
+					}
+					audioImgDetected.A_STOP_TIME = gpac.get_scene_time();
+				}
+				
+				function showCollectButton() {
+					tsShowCollectBut.startTime 		= gpac.get_scene_time();
+					tsShowCollectBut.enabled 		= true;
+				}
+				
+				function hideCollectButton() {
+					tsHideCollectBut.startTime 	= gpac.get_scene_time();
+					tsHideCollectBut.enabled 	= true;
+				}
+				
+				function showLoovInfo() {
+					tsShowLoovInfo.startTime 	= gpac.get_scene_time();
+					triggerHideInfo.startTime 	= gpac.get_scene_time();
+					tsShowLoovInfo.enabled 		= true;
+					triggerHideInfo.enabled 	= true;
+				}
+				
+				function loveInfoVisible(val) {
+					if (val) return;
+					loov_cnt_txt.geometry.string = new MFString ('' + p.loovs);
+					score_timer.startTime = gpac.get_scene_time();
+					score_timer.enabled = true;
+				}
+				
+				function hideLoovInfo(val, ts) {
+					if (val) return;
+					tsHideLoovInfo.startTime 	= gpac.get_scene_time();
+					tsHideLoovInfo.enabled 		= true;
+				}
+				
+# triggered when the LOOV INFO MESSAGE (the sliding middle message) is hidden
+				function loovInfoHidden(val) {
+					if (val) return;
+					else {
+						imageDetected = false;
+						tsTextSize.startTime = gpac.get_scene_time();
+						error_text.FontStyle_size = 18;
+						error_text.Text_string[0] = keepSearchingMsg;
+						loov_count_info.children[0].geometry.string = new MFString ('' + p.loovs);
+						loov_count_info.children[0].geometry.fontStyle.size = 24;
+						loov_count_info.translation = new SFVec2f (-43, -7);
+						loov_count_info.children[0].appearance.material.emissiveColor = new SFColor (1,0,0);
+						loovCntSw.whichChoice = -1;
+					}
+				}
+				
+# vertical inclination of the device => compute the vertical position of the AR object
+# a 90 degree inclination (device perpendicular on Earth) => vertical translation = 0
+				function deviceVerticalPos(vAngle) {
+					# NOTICE
+					# mobile
+					return -(vAngle+90) * 0.1;
+					# tablet
+					# return (vAngle-90) * 0.3;
+				}
+				
+				function emphasizeScore(val, ts) {
+					if (grow) {
+						if (loov_cnt_txt.FontStyle_size < 28) {
+							loov_cnt_txt.FontStyle_size += 1;
+						}
+						else {
+							grow = false;
+						}
+					}
+					else {
+						if (loov_cnt_txt.FontStyle_size > 18) {
+							loov_cnt_txt.FontStyle_size -= 1;
+						}
+						else {
+							score_timer.stopTime = ts;
+							score_timer.enabled = false;
+							grow = true;
+						}
+					}
+				}
+				
+				function addNewARObject(idx, orientation) {
+					# get the vertical inclination of the device
+					# NOTICE
+					# mobile
+					verticalPos	= deviceVerticalPos(orientation.y);
+					# tablet
+					# verticalPos	= deviceVerticalPos(orientation.z);
+					# find the GPS coordinates (fake coordinates) that are in front of the player
+					mainARObjCoords = computeARPos(orientation.x, 13);
+					arNode 				= createARObject(mainARObjCoords, verticalPos);
+					ar_view.addObject 	= arNode;
+				#	addAdditionalARObjects(orientation.x, verticalPos);
+					player_instance.setMapGPSCenter = mapCenter;
+					player_instance.setPlayerGPSPosition = new SFVec2f (player_instance.playerPosition.x, player_instance.playerPosition.y);
+				}
+				
+# add a given number of AR Objects around the player at a constant angle
+# depending on the total number of AR Objects to be added. Compute the new angle
+# according to the startingAngle, which is the angle of the first AR Object
+				function addAdditionalARObjects(startingAngle, verticalPos) {
+					# the angle between 2 "consecutive"" objects
+					step = 360/detectedPart.loovs;
+					for (k = 1; k < detectedPart.loovs; k++) {
+						currentAngle 	= startingAngle + step * k;
+						currentCoords 	= computeARPos(currentAngle, 13);
+						arNode 				= createARObject(currentCoords, verticalPos);
+						ar_view.addObject 	= arNode;
+					}
+				}
+				
+				function createARObject(coords, verticalPos) {
+					arNode 					= new SFNode ('AR_OBJECT');
+					arNode.name 			= 'arobj_'+Math.random().toString(36).substr(2, 5);
+					arNode.visible 			= true;
+					arNode.playerPosition 	= new SFVec2f (player_instance.playerPosition.x, player_instance.playerPosition.y);
+					arNode.position 		= new SFVec3f (coords[0], coords[1], verticalPos);
+					arNode.objectURL		= ''+411;
+					arNode.distanceVisibility = -1;
+					arNode.objScale 		= new SFVec3f (0.015, 0.015, 0.015);
+					return arNode;
+				}
+				
+				function computeARPos(angle, d) {
+					# the angle between the player and the new AR object in radians
+					# NOTICE
+					# mobile
+					hAngle 	= (angle) * Math.PI / 180;
+					# tablet
+					# hAngle 	= (-90+angle) * Math.PI / 180;
+					lat1 	= player_instance.playerPosition.x * (Math.PI/180);
+					lon1 	= player_instance.playerPosition.y * (Math.PI/180);
+
+					lat2 = Math.asin( Math.sin(lat1)*Math.cos(d/R) + Math.cos(lat1)*Math.sin(d/R)*Math.cos(hAngle) );
+					lon2 = lon1 + Math.atan2(Math.sin(hAngle)*Math.sin(d/R)*Math.cos(lat1), Math.cos(d/R)-Math.sin(lat1)*Math.sin(lat2));
+					
+					lat2 *= 180/Math.PI;
+					lon2 *= 180/Math.PI;
+					return new Array(lat2, lon2);
+				}
+				
+				function updateOrientation(val) {
+					deviceOrientation = val;
+				}
+				
+				function updateAcceleration(val) {
+					deviceAcceleration = val;
+					if (!useAcceleration) return;
+					if (tabs.CurrentTab != PLAY_VIEW) return;
+					if (imageDetected) return;
+					if (deviceInScanningModeAcc(val, 0.05)) {
+						enableRS();
+					}
+					else {
+						disableRS();
+					}
+					lastAcceleration = new SFVec3f (val.x, val.y, val.z);
+				}
+				
+				function updateAngularVelocity(val) {
+					deviceVelocity = val;
+					# if not in playing mode don't check if the device
+					# might me in scanning mode
+					if (tabs.CurrentTab != PLAY_VIEW) return;
+					if (imageDetected) return;
+					if (deviceInScanningMode(deviceVelocity, 0.2)) {
+						enableRS();
+					}
+					else {
+						disableRS();
+					}
+				}
+				
+				function deviceInScanningModeAcc(acc, limit) {
+					if(	Math.abs(lastAcceleration.x-acc.x) > limit | 
+						Math.abs(lastAcceleration.y-acc.y) > limit | 
+						Math.abs(lastAcceleration.z-acc.z) > limit )
+						return false;
+					else return true;
+				}
+				
+				function deviceInScanningMode(sensorValue, limit) {
+					if(	Math.abs(sensorValue.x) > limit | 
+						Math.abs(sensorValue.y) > limit | 
+						Math.abs(sensorValue.z) > limit )
+						return false;
+					else return true;
+				}
+				
+				function enableRS() {
+					rs.enabled = true;
+					scanning_sw.whichChoice = 0;
+				}
+				
+				function disableRS() {
+					rs.enabled = false;
+					scanning_sw.whichChoice = -1;
+				}
+			"]
+		}
+		DEF ORIENTATION_SENSOR InputSensor {
+			url "4"
+			buffer {
+				REPLACE SCRIPT.updateOrientation BY 0 0 0
+			}
+		}
+		DEF ACCELERATION InputSensor {
+			url "5"
+			buffer {
+				REPLACE SCRIPT.updateAcceleration BY 0 0 0
+			}
+		}
+		DEF ANGULAR_VELOCITY InputSensor {
+			url "6"
+			buffer {
+				REPLACE SCRIPT.updateAngularVelocity BY 0 0 0
+			}
+		}
+	]
+}
+ROUTE MAIN_SCENE.onClick TO SCRIPT.showMainView
+
+ROUTE TABS.CurrentTab TO SCRIPT.tabChanged
+
+ROUTE RS.onInputDetected TO SCRIPT.onInputDetected
+ROUTE COLLECT_BUTTON.onClick TO SCRIPT.collectLove
+ROUTE DISPLAY_STOCK_BUTTON.onClick TO SCRIPT.showStockPage
+#
+# LOOV INFO
+#
+ROUTE TS_SHOW_LOOV_INFO.fraction_changed TO PI_SHOW_LOOV_INFO.set_fraction
+ROUTE PI_SHOW_LOOV_INFO.value_changed TO LOOV_INFO.translation
+ROUTE TS_SHOW_LOOV_INFO.isActive TO SCRIPT.loveInfoVisible
+
+ROUTE TS_HIDE_LOOV_INFO.fraction_changed TO PI_HIDE_LOOV_INFO.set_fraction
+ROUTE PI_HIDE_LOOV_INFO.value_changed TO LOOV_INFO.translation
+ROUTE TS_HIDE_LOOV_INFO.isActive TO SCRIPT.loovInfoHidden
+
+ROUTE TS_TRIGGER_HIDE_LOOV_INFO.isActive TO SCRIPT.hideLoovInfo
+#
+# COLLECT BUTTON
+#
+ROUTE TS_SHOW_COLLECT_BUTTON.fraction_changed TO PI_SHOW_COLLECT_BUTTON.set_fraction
+ROUTE PI_SHOW_COLLECT_BUTTON.value_changed TO COLLECT_BUTTON.Transform2D_translation
+
+ROUTE TS_HIDE_COLLECT_BUTTON.fraction_changed TO PI_HIDE_COLLECT_BUTTON.set_fraction
+ROUTE PI_HIDE_COLLECT_BUTTON.value_changed TO COLLECT_BUTTON.Transform2D_translation
+#
+# ERROR MESSAGE
+#
+ROUTE TS_HIDE_ERROR_MESSAGE.isActive TO SCRIPT.hideErrorMessage
+
+ROUTE TS_TEXT_SIZE.fraction_changed TO TEXT_INTERPOLATOR.set_fraction
+ROUTE TEXT_INTERPOLATOR.value_changed TO ERROR_TEXT.FontStyle_size
+
+#
+# CHECK DEVICE SENSORS
+# 
+ROUTE TS_CHECK_SENSORS.isActive TO SCRIPT.deviceSensors
+#
+# COLLECT TIMER
+#
+ROUTE TS_COLLECT_TIMER.cycleTime TO SCRIPT.collectTimerCycle
+#
+# SCORE TIMER
+#
+ROUTE QUESTION_PAGE_SCORE_TIMER.fraction_changed TO SCRIPT.emphasizeScore
+#
+# WAIT TIMER
+#
+ROUTE PLEASE_WAIT_TIMER.isActive TO SCRIPT.removeWaitMessage
+ROUTE TIMER_1.time TO SCRIPT.decreaseTimerOne
+ROUTE TIMER_1.time TO SCRIPT.noTimeLeft
+ROUTE TIMER_1.isActive TO SCRIPT.timeIsUp
+ROUTE SCRIPT.childAdd TO TAB_VIEW.addChildren
+ROUTE SCRIPT.childAdd1 TO CAMERA_LAYER.addChildren
+ROUTE SCRIPT.childRemove TO TAB_VIEW.removeChildren
+ROUTE SHOOT_BUTTON.onClick TO SCRIPT.shootMonster
+ROUTE SCRIPT.gameOver TO SCRIPT.gameResult
+ROUTE EXPLOSION_TIMER.fraction_changed TO SCRIPT.hideExplosion
+
+
+ROUTE SHARE_BUTTON.onClick TO SCRIPT.doShare
+
+AT 0 {
+	UPDATE OD [
+		ObjectDescriptor {
+			objectDescriptorID 1
+				esDescr [
+					ES_Descriptor {
+						ES_ID 1
+						decConfigDescr DecoderConfigDescriptor {
+							streamType 10
+							decSpecificInfo UIConfig {
+								deviceName "KeySensor"
+							}
+						}
+					}
+				]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 2
+				esDescr [
+					ES_Descriptor {
+						ES_ID 2
+						decConfigDescr DecoderConfigDescriptor {
+							streamType 10
+							decSpecificInfo UIConfig {
+								deviceName "Mouse"
+							}
+						}
+					}
+				]
+		}	
+		ObjectDescriptor {
+			objectDescriptorID 3
+			esDescr [
+				ES_Descriptor {
+					ES_ID 3
+					decConfigDescr DecoderConfigDescriptor {
+						streamType 10
+						decSpecificInfo UIConfig {
+							deviceName "StringSensor"
+						}
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 4
+			esDescr [
+				ES_Descriptor {
+					ES_ID 4
+					decConfigDescr DecoderConfigDescriptor {
+						streamType 10
+						decSpecificInfo UIConfig {
+							deviceName "MPEG-V:siv:OrientationSensorType"
+						}
+					}
+				}
+			]
+		}
+		
+		ObjectDescriptor {
+			objectDescriptorID 5
+			esDescr [
+				ES_Descriptor {
+					ES_ID 5
+					decConfigDescr DecoderConfigDescriptor {
+						streamType 10
+						decSpecificInfo UIConfig {
+							deviceName "MPEG-V:siv:AccelerationSensorType"
+						}
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 6
+			esDescr [
+				ES_Descriptor {
+					ES_ID 6
+					decConfigDescr DecoderConfigDescriptor {
+						streamType 10
+						decSpecificInfo UIConfig {
+							deviceName "MPEG-V:siv:AngularVelocitySensorType"
+						}
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 7
+			esDescr [
+				ES_Descriptor {
+					ES_ID 7
+					decConfigDescr DecoderConfigDescriptor {
+						streamType 10
+						decSpecificInfo UIConfig {
+							deviceName "MPEG-V:siv:GlobalPositionSensorType"
+						}
+					}
+				}
+			]
+		}	
+		
+		ObjectDescriptor {
+			objectDescriptorID 9
+			esDescr [
+				ES_Descriptor {
+					ES_ID 9
+					muxInfo MuxInfo {
+						fileName "images/assets/intro.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 10
+			esDescr [
+				ES_Descriptor {
+					ES_ID 10
+					muxInfo MuxInfo {
+						fileName "images/assets/menu_play_off.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 11
+			esDescr [
+				ES_Descriptor {
+					ES_ID 11
+					muxInfo MuxInfo {
+						fileName "images/assets/menu_play_on.png"
+					}
+				}
+			]
+		}			
+		ObjectDescriptor {
+			objectDescriptorID 12
+			esDescr [
+				ES_Descriptor {
+					ES_ID 12
+					muxInfo MuxInfo {
+						fileName "images/assets/map_off.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 13
+			esDescr [
+				ES_Descriptor {
+					ES_ID 13
+					muxInfo MuxInfo {
+						fileName "images/assets/map_on.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 14
+			esDescr [
+				ES_Descriptor {
+					ES_ID 14
+					muxInfo MuxInfo {
+						fileName "images/assets/menu_help_off.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 15
+			esDescr [
+				ES_Descriptor {
+					ES_ID 15
+					muxInfo MuxInfo {
+						fileName "images/assets/menu_help_on.png"
+					}
+				}
+			]
+		}	
+		ObjectDescriptor {
+			objectDescriptorID 16
+			esDescr [
+				ES_Descriptor {
+					ES_ID 16
+					muxInfo MuxInfo {
+						fileName "images/assets/Brevets_off.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 17
+			esDescr [
+				ES_Descriptor {
+					ES_ID 17
+					muxInfo MuxInfo {
+						fileName "images/assets/Brevets_on.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 18
+			esDescr [
+				ES_Descriptor {
+					ES_ID 18
+					muxInfo MuxInfo {
+						fileName "images/assets/radar.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 19
+			esDescr [
+				ES_Descriptor {
+					ES_ID 19
+					muxInfo MuxInfo {
+						fileName "images/assets/howto_text.png"
+					}
+				}
+			]
+		}
+		
+		
+		ObjectDescriptor {
+			objectDescriptorID 24
+			esDescr [
+				ES_Descriptor {
+					ES_ID 24
+					muxInfo MuxInfo {
+						fileName "images/assets/next_off.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 25
+			esDescr [
+				ES_Descriptor {
+					ES_ID 25
+					muxInfo MuxInfo {
+						fileName "images/assets/next_on.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 26
+			esDescr [
+				ES_Descriptor {
+					ES_ID 26
+					muxInfo MuxInfo {
+						fileName "images/assets/howto_off.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 27
+			esDescr [
+				ES_Descriptor {
+					ES_ID 27
+					muxInfo MuxInfo {
+						fileName "images/assets/howto_on.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 28
+			esDescr [
+				ES_Descriptor {
+					ES_ID 28
+					muxInfo MuxInfo {
+						fileName "images/assets/example_off.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 29
+			esDescr [
+				ES_Descriptor {
+					ES_ID 29
+					muxInfo MuxInfo {
+						fileName "images/assets/example_on.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 30
+			esDescr [
+				ES_Descriptor {
+					ES_ID 30
+					muxInfo MuxInfo {
+						fileName "images/assets/play_off.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 31
+			esDescr [
+				ES_Descriptor {
+					ES_ID 31
+					muxInfo MuxInfo {
+						fileName "images/assets/play_on.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 32
+			esDescr [
+				ES_Descriptor {
+					ES_ID 32
+					muxInfo MuxInfo {
+						fileName "images/assets/ok_off.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 33
+			esDescr [
+				ES_Descriptor {
+					ES_ID 33
+					muxInfo MuxInfo {
+						fileName "images/assets/ok_on.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 34
+			esDescr [
+				ES_Descriptor {
+					ES_ID 34
+					muxInfo MuxInfo {
+						fileName "images/assets/cancel_off.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 35
+			esDescr [
+				ES_Descriptor {
+					ES_ID 35
+					muxInfo MuxInfo {
+						fileName "images/assets/cancel_on.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 36
+			esDescr [
+				ES_Descriptor {
+					ES_ID 36
+					muxInfo MuxInfo {
+						fileName "images/assets/validate_off.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 37
+			esDescr [
+				ES_Descriptor {
+					ES_ID 37
+					muxInfo MuxInfo {
+						fileName "images/assets/validate_on.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 38
+			esDescr [
+				ES_Descriptor {
+					ES_ID 38
+					muxInfo MuxInfo {
+						fileName "images/assets/red_diploma.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 39
+			esDescr [
+				ES_Descriptor {
+					ES_ID 39
+					muxInfo MuxInfo {
+						fileName "images/assets/feedback.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 40
+			esDescr [
+				ES_Descriptor {
+					ES_ID 40
+					muxInfo MuxInfo {
+						fileName "images/assets/example.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 41
+			esDescr [
+				ES_Descriptor {
+					ES_ID 41
+					muxInfo MuxInfo {
+						fileName "images/assets/background.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 42
+			esDescr [
+				ES_Descriptor {
+					ES_ID 42
+					muxInfo MuxInfo {
+						fileName "images/assets/background_center.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 44
+			esDescr [
+				ES_Descriptor {
+					ES_ID 44
+					muxInfo MuxInfo {
+						fileName "images/assets/back_off.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 45
+			esDescr [
+				ES_Descriptor {
+					ES_ID 45
+					muxInfo MuxInfo {
+						fileName "images/assets/back_on.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 46
+			esDescr [
+				ES_Descriptor {
+					ES_ID 46
+					muxInfo MuxInfo {
+						fileName "images/assets/sharethis_off.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 47
+			esDescr [
+				ES_Descriptor {
+					ES_ID 47
+					muxInfo MuxInfo {
+						fileName "images/assets/sharethis_on.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 48
+			esDescr [
+				ES_Descriptor {
+					ES_ID 48
+					muxInfo MuxInfo {
+						fileName "images/assets/internet_off.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 49
+			esDescr [
+				ES_Descriptor {
+					ES_ID 49
+					muxInfo MuxInfo {
+						fileName "images/assets/internet_on.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 50
+			esDescr [
+				ES_Descriptor {
+					ES_ID 50
+					muxInfo MuxInfo {
+						fileName "images/map/plan.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 51
+			esDescr [
+				ES_Descriptor {
+					ES_ID 51
+					muxInfo MuxInfo {
+						fileName "images/assets/blank_certificate_nan.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 52
+			esDescr [
+				ES_Descriptor {
+					ES_ID 52
+					muxInfo MuxInfo {
+						fileName "images/assets/graduation_diploma.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 53
+			esDescr [
+				ES_Descriptor {
+					ES_ID 53
+					muxInfo MuxInfo {
+						fileName "images/assets/lottery.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 54
+			esDescr [
+				ES_Descriptor {
+					ES_ID 54
+					muxInfo MuxInfo {
+						fileName "images/assets/border.png"
+					}
+				}
+			]
+		}
+        ObjectDescriptor {
+			objectDescriptorID 55
+			esDescr [
+				ES_Descriptor {
+					ES_ID 55
+					muxInfo MuxInfo {
+						fileName "images/explosion.png"
+					}
+				}
+			]
+		}
+        ObjectDescriptor {
+			objectDescriptorID 56
+			esDescr [
+				ES_Descriptor {
+					ES_ID 56
+					muxInfo MuxInfo {
+						fileName "images/assets/dialog_bg.png"
+					}
+				}
+			]
+		}
+        ObjectDescriptor {
+			objectDescriptorID 57
+			esDescr [
+				ES_Descriptor {
+					ES_ID 57
+					muxInfo MuxInfo {
+						fileName "images/assets/button_on.png"
+					}
+				}
+			]
+		}
+        ObjectDescriptor {
+			objectDescriptorID 58
+			esDescr [
+				ES_Descriptor {
+					ES_ID 58
+					muxInfo MuxInfo {
+						fileName "images/assets/button_off.png"
+					}
+				}
+			]
+		}
+        ObjectDescriptor {
+			objectDescriptorID 59
+			esDescr [
+				ES_Descriptor {
+					ES_ID 59
+					muxInfo MuxInfo {
+						fileName "images/assets/fireButton.png"
+					}
+				}
+			]
+		}
+		# #
+		ObjectDescriptor {
+			objectDescriptorID 411
+			esDescr [
+				ES_Descriptor {
+					ES_ID 411
+					muxInfo MuxInfo {
+						fileName "arObjects/loov.mp4"
+					}
+				}
+			]
+		}
+		
+		#
+		# MEDIA TO DETECT (REFERENCE SIGNAL)
+		#
+		ObjectDescriptor {
+			objectDescriptorID 301
+			esDescr [
+				ES_Descriptor {
+					ES_ID 301
+					muxInfo MuxInfo {
+						fileName "images/refsignal/cdci1.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 302
+			esDescr [
+				ES_Descriptor {
+					ES_ID 302
+					muxInfo MuxInfo {
+						fileName "images/refsignal/cdci2.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 303
+			esDescr [
+				ES_Descriptor {
+					ES_ID 303
+					muxInfo MuxInfo {
+						fileName "images/refsignal/cdci3.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 304
+			esDescr [
+				ES_Descriptor {
+					ES_ID 304
+					muxInfo MuxInfo {
+						fileName "images/refsignal/cdci4.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 305
+			esDescr [
+				ES_Descriptor {
+					ES_ID 305
+					muxInfo MuxInfo {
+						fileName "images/refsignal/cdci5.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 306
+			esDescr [
+				ES_Descriptor {
+					ES_ID 306
+					muxInfo MuxInfo {
+						fileName "images/refsignal/cdci6.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 307
+			esDescr [
+				ES_Descriptor {
+					ES_ID 307
+					muxInfo MuxInfo {
+						fileName "images/refsignal/cdci7.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 308
+			esDescr [
+				ES_Descriptor {
+					ES_ID 308
+					muxInfo MuxInfo {
+						fileName "images/refsignal/cdci8.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 309
+			esDescr [
+				ES_Descriptor {
+					ES_ID 309
+					muxInfo MuxInfo {
+						fileName "images/refsignal/cdci9.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 310
+			esDescr [
+				ES_Descriptor {
+					ES_ID 310
+					muxInfo MuxInfo {
+						fileName "images/refsignal/cdci10.jpg"
+					}
+				}
+			]
+		}
+		#
+		# BREVET
+		#
+		ObjectDescriptor {
+			objectDescriptorID 401
+			esDescr [
+				ES_Descriptor {
+					ES_ID 401
+					muxInfo MuxInfo {
+						fileName "images/refsignal/brevets/cdci1.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 402
+			esDescr [
+				ES_Descriptor {
+					ES_ID 402
+					muxInfo MuxInfo {
+						fileName "images/refsignal/brevets/cdci2.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 403
+			esDescr [
+				ES_Descriptor {
+					ES_ID 403
+					muxInfo MuxInfo {
+						fileName "images/refsignal/brevets/cdci3.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 404
+			esDescr [
+				ES_Descriptor {
+					ES_ID 404
+					muxInfo MuxInfo {
+						fileName "images/refsignal/brevets/cdci4.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 405
+			esDescr [
+				ES_Descriptor {
+					ES_ID 405
+					muxInfo MuxInfo {
+						fileName "images/refsignal/brevets/cdci5.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 406
+			esDescr [
+				ES_Descriptor {
+					ES_ID 406
+					muxInfo MuxInfo {
+						fileName "images/refsignal/brevets/cdci6.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 407
+			esDescr [
+				ES_Descriptor {
+					ES_ID 407
+					muxInfo MuxInfo {
+						fileName "images/refsignal/brevets/cdci7.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 408
+			esDescr [
+				ES_Descriptor {
+					ES_ID 408
+					muxInfo MuxInfo {
+						fileName "images/refsignal/brevets/cdci8.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 409
+			esDescr [
+				ES_Descriptor {
+					ES_ID 409
+					muxInfo MuxInfo {
+						fileName "images/refsignal/brevets/cdci9.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 410
+			esDescr [
+				ES_Descriptor {
+					ES_ID 410
+					muxInfo MuxInfo {
+						fileName "images/refsignal/brevets/cdci10.jpg"
+					}
+				}
+			]
+		}
+		
+		#
+		# THUMBS (REFERENCE SIGNAL)
+		#
+		ObjectDescriptor {
+			objectDescriptorID 601
+			esDescr [
+				ES_Descriptor {
+					ES_ID 601
+					muxInfo MuxInfo {
+						fileName "images/refsignal/thumbs/cdci1.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 602
+			esDescr [
+				ES_Descriptor {
+					ES_ID 602
+					muxInfo MuxInfo {
+						fileName "images/refsignal/thumbs/cdci2.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 603
+			esDescr [
+				ES_Descriptor {
+					ES_ID 603
+					muxInfo MuxInfo {
+						fileName "images/refsignal/thumbs/cdci3.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 604
+			esDescr [
+				ES_Descriptor {
+					ES_ID 604
+					muxInfo MuxInfo {
+						fileName "images/refsignal/thumbs/cdci4.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 605
+			esDescr [
+				ES_Descriptor {
+					ES_ID 605
+					muxInfo MuxInfo {
+						fileName "images/refsignal/thumbs/cdci5.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 606
+			esDescr [
+				ES_Descriptor {
+					ES_ID 606
+					muxInfo MuxInfo {
+						fileName "images/refsignal/thumbs/cdci6.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 607
+			esDescr [
+				ES_Descriptor {
+					ES_ID 607
+					muxInfo MuxInfo {
+						fileName "images/refsignal/thumbs/cdci7.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 608
+			esDescr [
+				ES_Descriptor {
+					ES_ID 608
+					muxInfo MuxInfo {
+						fileName "images/refsignal/thumbs/cdci8.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 609
+			esDescr [
+				ES_Descriptor {
+					ES_ID 609
+					muxInfo MuxInfo {
+						fileName "images/refsignal/thumbs/cdci9.jpg"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 610
+			esDescr [
+				ES_Descriptor {
+					ES_ID 610
+					muxInfo MuxInfo {
+						fileName "images/refsignal/thumbs/cdci10.jpg"
+					}
+				}
+			]
+		}
+		#
+		# THUMBS ON MAP
+		#
+		ObjectDescriptor {
+			objectDescriptorID 701
+			esDescr [
+				ES_Descriptor {
+					ES_ID 701
+					muxInfo MuxInfo {
+						fileName "images/map/cdci1.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 702
+			esDescr [
+				ES_Descriptor {
+					ES_ID 702
+					muxInfo MuxInfo {
+						fileName "images/map/cdci2.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 703
+			esDescr [
+				ES_Descriptor {
+					ES_ID 703
+					muxInfo MuxInfo {
+						fileName "images/map/cdci3.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 704
+			esDescr [
+				ES_Descriptor {
+					ES_ID 704
+					muxInfo MuxInfo {
+						fileName "images/map/cdci4.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 705
+			esDescr [
+				ES_Descriptor {
+					ES_ID 705
+					muxInfo MuxInfo {
+						fileName "images/map/cdci5.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 706
+			esDescr [
+				ES_Descriptor {
+					ES_ID 706
+					muxInfo MuxInfo {
+						fileName "images/map/cdci6.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 707
+			esDescr [
+				ES_Descriptor {
+					ES_ID 707
+					muxInfo MuxInfo {
+						fileName "images/map/cdci7.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 708
+			esDescr [
+				ES_Descriptor {
+					ES_ID 708
+					muxInfo MuxInfo {
+						fileName "images/map/cdci8.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 709
+			esDescr [
+				ES_Descriptor {
+					ES_ID 709
+					muxInfo MuxInfo {
+						fileName "images/map/cdci9.png"
+					}
+				}
+			]
+		}
+		ObjectDescriptor {
+			objectDescriptorID 710
+			esDescr [
+				ES_Descriptor {
+					ES_ID 710
+					muxInfo MuxInfo {
+						fileName "images/map/cdci10.png"
+					}
+				}
+			]
+		}
+		#
+		# SOUNDS
+		#
+		# next
+		ObjectDescriptor {
+			objectDescriptorID 801
+			esDescr [
+				ES_Descriptor {
+					ES_ID 801
+					muxInfo MuxInfo {
+						fileName "sounds/next.mp3"
+					}
+				}
+			]
+		}
+		# img detected
+		ObjectDescriptor {
+			objectDescriptorID 802
+			esDescr [
+				ES_Descriptor {
+					ES_ID 802
+					muxInfo MuxInfo {
+						fileName "sounds/imgDetected.mp3"
+					}
+				}
+			]
+		}
+		# img already detected
+		ObjectDescriptor {
+			objectDescriptorID 803
+			esDescr [
+				ES_Descriptor {
+					ES_ID 803
+					muxInfo MuxInfo {
+						fileName "sounds/alreadyDetected.mp3"
+					}
+				}
+			]
+		}
+		# sliding score
+		ObjectDescriptor {
+			objectDescriptorID 806
+			esDescr [
+				ES_Descriptor {
+					ES_ID 806
+					muxInfo MuxInfo {
+						fileName "sounds/slideScore.mp3"
+					}
+				}
+			]
+		}
+		# collect button
+		ObjectDescriptor {
+			objectDescriptorID 807
+			esDescr [
+				ES_Descriptor {
+					ES_ID 807
+					muxInfo MuxInfo {
+						fileName "sounds/buttonClick.mp3"
+					}
+				}
+			]
+		}
+		# cancel button
+		ObjectDescriptor {
+			objectDescriptorID 808
+			esDescr [
+				ES_Descriptor {
+					ES_ID 808
+					muxInfo MuxInfo {
+						fileName "sounds/cancelButton.mp3"
+					}
+				}
+			]
+		}
+		# got the product
+		ObjectDescriptor {
+			objectDescriptorID 809
+			esDescr [
+				ES_Descriptor {
+					ES_ID 809
+					muxInfo MuxInfo {
+						fileName "sounds/gotIt.mp3"
+					}
+				}
+			]
+		}
+		# not enough $$$ for the selection
+		ObjectDescriptor {
+			objectDescriptorID 810
+			esDescr [
+				ES_Descriptor {
+					ES_ID 810
+					muxInfo MuxInfo {
+						fileName "sounds/notEnough.mp3"
+					}
+				}
+			]
+		}
+		# turn page
+		ObjectDescriptor {
+			objectDescriptorID 811
+			esDescr [
+				ES_Descriptor {
+					ES_ID 811
+					muxInfo MuxInfo {
+						fileName "sounds/turnPage.mp3"
+					}
+				}
+			]
+		}
+	]
+}
