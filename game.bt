@@ -1905,14 +1905,14 @@ OrderedGroup {
 					children [
 						TEXT {
 							Transform2D_translation 10 300
-							Text_string "Aide"
-							Layout_size 100 50
+							Text_string "Help"
+							Layout_size 100 100
 							FontStyle_size 30
 							Material2D_emissiveColor $DB5959
 						}
 						TEXT {
 							Transform2D_translation 0 170
-							Text_string "Collectez des brevets lors du forum de la création d'entreprise organisé le 14 juin à la Chambre de commerce et d'industrie de l'Essonne par le réseau CREE. Pour faire ça, vous devez rencontrer des experts. A la fin de ses rencontres, chaque interlocuteur vous montrera une image."
+							Text_string "You have 90 seconds to collect effective guns. After that, you will be attacked and will have to use your guns to survive. You can collect your guns by scanning the images you have, 2 images can represent one gun, don't forget to check the inventory to see your survival kit "
 							Layout_size 430 200
 							FontStyle_size 18
 						}
@@ -1938,22 +1938,17 @@ OrderedGroup {
 						}
 						TEXT {
 							Transform2D_translation 0 -90
-							Text_string "Une fois que vous avez scanné l'image, vous pourrez voir devant vous le brevet que vous pouvez collecter en appuyant sur le bouton « parchemin ». Ensuite vous pouvez aller vers l'expert suivant."
+							Text_string "After scanning the image, if a gun is detected you have to collect it by clicking on the collecting hand"
 							Layout_size 430 200
 							FontStyle_size 18
 						}
 						TEXT {
 							Transform2D_translation 0 -180
-							Text_string "Dès que vous accumulez 5 brevets, votre ID unique va être affiché sur votre écran. Vous devez l'écrire sur les deux papiers qui vous ont été donnés et mettre un des papiers dans l'urne pour le tirage au sort."
+							Text_string "After the 90 seconds, the real danger starts. I monster comes fast in your direction, you have to kill him user your guns, if you don't have any powerfull gun, you'd better gun because he will follow you and kill you otherwise "
 							Layout_size 430 150
 							FontStyle_size 18
 						}
-						TEXT {
-							Transform2D_translation 0 -290
-							Text_string "Vous devez totaliser au moins 5 « brevets » pour participer au tirage final."
-							Layout_size 430 150
-							FontStyle_size 18
-						}
+						
 					]
 				}
 				DEF BACKGROUND_IMAGE IMAGE {
@@ -2046,7 +2041,7 @@ OrderedGroup {
 										DEF RS REFERENCE_SIGNAL {
 											enabled FALSE
 											source ["hw://camera"]
-											referenceResources ["301", "302", "303", "304", "305", "306", "307", "308", "309", "310"]
+											referenceResources ["301", "302", "303", "304", "305", "306"]
 										}
 										USE AR_VIEW_INSTANCE
 										# display detected image (thumbnail)
@@ -2273,7 +2268,7 @@ OrderedGroup {
 															Layout_size 400 100
 															FontStyle_size 24
 															Material2D_emissiveColor 1 1 1
-															Text_string "You don't have any brevets yet."
+															Text_string "You don't have any gun yet."
 														}
 														DEF STOCK_ITEMS OrderedGroup {
 															children [
@@ -2411,8 +2406,8 @@ OrderedGroup {
                         DEF TIMER_1 TimeSensor {
                             loop TRUE
                             enabled FALSE
-                            #stopTime 90
-                            stopTime 5
+                            stopTime 90
+                            #stopTime 5
                         }
                         DEF TIMER_1_TEXT TEXT {
                             Transform2D_translation 0 300
@@ -2537,8 +2532,8 @@ OrderedGroup {
 			field SFNode userIDPageSW		USE USER_ID_PAGE_SW
 			field SFNode loovCntSw			USE LOOV_CNT_SW
             field SFNode tab_view           USE TAB_VIEW 
-            #field SFInt32 clock            90
-            field SFInt32 clock             5
+            field SFInt32 clock            90
+            #field SFInt32 clock             5
 			field SFNode monsterTimer		USE MONSTER_TIMER
 			
 			eventIn	SFVec3f	    updateOrientation
@@ -2836,15 +2831,15 @@ OrderedGroup {
 				
 				function setDefaultMessages() {
 					# default messages
-					dejaCollecteMsg 	= 'Vous avez déjà obtenu ce brevet!';
-					startMsg			= 'Commencez à chercher les brevets!';
-					foundLoovMsg		= ' brevet autour de vous. Appuyez sur le parchemin.';
-					wantMoreMsg			= 'Voulez-vous plus des brevets? Cherchez encore!';
-					ranOutMsg			= 'Il n\'y a plus des brevets disponibles ici.';
-					keepSearchingMsg	= 'Cherchez une autre photo...';
+					dejaCollecteMsg 	= 'You have already scanned that!';
+					startMsg			= 'Start looking for guns now!';
+					foundLoovMsg		= ' Guns around you! Click on the collecting hand.';
+					wantMoreMsg			= 'You want to survive! keep searching';
+					ranOutMsg			= 'No more guns here...!';
+					keepSearchingMsg	= 'Look for another picture..';
 					shareMsg			= 'Je viens de découvrir AR Brevet, www.mymultimediaworld.com/games/';
-					noInternetMsg		= 'Vous n\'avez pas de connexion Internet!';
-					checkInternetMsg	= 'Vérifiez votre connexion internet!'; 
+					noInternetMsg		= 'You don\'t have any internet connection!';
+					checkInternetMsg	= 'Check you internet connection!'; 
 				}
 				
 				function internetConnection(val) {
@@ -3050,7 +3045,7 @@ OrderedGroup {
 						Browser.addRoute(arNode, 'onPlayerLeft', thisScript, 'deactivateMonsterAttack');
 						Browser.addRoute(monster_timer, 'cycleTime', thisScript, 'monsterAttacks');
 						Browser.addRoute(arNode, 'showDistance', thisScript, 'preventPlayer');
-						Browser.addRoute(chase_timer, 'time', arNode, 'chasePlayer');
+						Browser.addRoute(chase_timer, 'cycleTime', arNode, 'chasePlayer');
 
 						ar_view.addObject 	= arNode;
 						print ('arNode.position = ' + arNode.position);
@@ -3073,20 +3068,40 @@ OrderedGroup {
 
 
                 }
-
+                function contains(array, name){
+                	doesContain=false;
+                	for (var i=0; i<array.length; i++){
+                		if (array[i].name==name){
+                			return true;
+                		}
+                	}
+                	return doesContain;
+                }
                # on COLLECT BUTTON click
 				function collectLove(val, ts) {
 					# store the visited city in the player object
 					p.visited.push(detectedPart.partID);
 					if((p.visited.indexOf('301')!=-1) && (p.visited.indexOf('302')!=-1)){
-						p.guns.push(new Weapon('minigun', 100, 25));
-
+						#if(!contains(p.guns,'minigun')){
+							p.guns.push(new Weapon('minigun', 100, 25));
+							print('=============================I am supposed to add a AR minigun===================');
+							addNewARObject(0,deviceOrientation);
+						#}
 					}
 					if((p.visited.indexOf('303')!=-1) && (p.visited.indexOf('304')!=-1)){
-						p.guns.push(new Weapon('gun', 30, 50));
+						#if(!contains(p.guns,'gun')){
+							p.guns.push(new Weapon('gun', 30, 50));
+							p.current++;
+							addNewARObject(1,deviceOrientation);
+
+							print('=============================I am supposed to add a AR gun===================');
+						#}
 					}
 					if((p.visited.indexOf('305')!=-1) && (p.visited.indexOf('306')!=-1)){
-						p.guns.push(new Weapon('shotGun', 60, 40));
+						#if(!contains(p.guns,'shotGun')){
+							p.guns.push(new Weapon('shotGun', 60, 40));
+							addNewARObject(2,deviceOrientation);
+						#}
 					}
 					print('--------------------------------------------------------------------youhouuuuu you have a gun---------------'+ p.guns[0]);
 					print ('********* [ COLLECT LOOVS! ]');
@@ -3100,9 +3115,9 @@ OrderedGroup {
 					hideCollectButton(ts);
 					loovCntSw.whichChoice = 0;
 					# change LOOV INFO text
-					loov_count_info.children[0].geometry.string[0] 	= 'Vous avez';
-					loov_count_info.children[0].geometry.string[1]  = 'déjà collecté';
-					loov_count_info.children[0].geometry.string[2]  = '       Brevets!';
+					loov_count_info.children[0].geometry.string[0] 	= 'You have';
+					loov_count_info.children[0].geometry.string[1]  = 'already collected';
+					loov_count_info.children[0].geometry.string[2]  = '       parts of guns!';
 					loov_count_info.children[0].geometry.fontStyle.size 	= 16;
 					loov_count_info.translation 	= new SFVec2f (-50, 8);
 					loov_count_info.children[0].appearance.material.emissiveColor 	= new SFColor (1, 1, 1);
@@ -3140,14 +3155,14 @@ OrderedGroup {
 # each time a user collects a Brevet, update the Stock page
 				function updateStockPage() {
 					if (p.loovs == 0) {
-						stockPageMessage.Text_string[0] = 'Vous n\'avez pas encore collecté de brevets!';
+						stockPageMessage.Text_string[0] = 'You have not yet collected guns!';
 						return;
 					}
 					else if (p.loovs < 5) {
-						stockPageMessage.Text_string[0] = 'Ceux-ci sont les brevets que vous détenez maintenant (' + p.loovs + '):';
+						stockPageMessage.Text_string[0] = 'These are the guns that you have now (' + p.loovs + '):';
 					}
 					else if (p.loovs >= 5) {
-						stockPageMessage.Text_string[0] = 'Félicitations! Maintenant vous pouvez participer au tirage au sort!';
+						stockPageMessage.Text_string[0] = 'Congratulations! you may survive';
 						showUserIDPage();
 					}
 					for (i = 0; i < p.visited.length; i++) {
@@ -3186,7 +3201,7 @@ OrderedGroup {
 								# show detected image
 								detectedImage(detectedPart.thumb);
 								clearARView();
-								addNewARObject(det, deviceOrientation);
+								#addNewARObject(det, deviceOrientation);
 								collectTimeRemaining = time2collectLove;
 								return;
 							}
@@ -3361,7 +3376,7 @@ OrderedGroup {
 					# verticalPos	= deviceVerticalPos(orientation.z);
 					# find the GPS coordinates (fake coordinates) that are in front of the player
 					mainARObjCoords = computeARPos(orientation.x, 13);
-					arNode 				= createARObject(mainARObjCoords, verticalPos);
+					arNode 				= createARObject(mainARObjCoords, verticalPos, idx);
 					ar_view.addObject 	= arNode;
 				#	addAdditionalARObjects(orientation.x, verticalPos);
 					player_instance.setMapGPSCenter = mapCenter;
@@ -3382,13 +3397,23 @@ OrderedGroup {
 					}
 				}
 				
-				function createARObject(coords, verticalPos) {
+				function createARObject(coords, verticalPos,idx) {
+					mp4	= 411;
+					if (idx==0){
+						mp4=412;
+					}
+					if (idx==1){
+						mp4=413;
+					}
+					if(idx==2){
+						mp4=414;
+					}
 					arNode 					= new SFNode ('AR_OBJECT');
 					arNode.name 			= 'arobj_'+Math.random().toString(36).substr(2, 5);
-					arNode.visible 			= true;
+					arNode.visible 			= truep.gun
 					arNode.playerPosition 	= new SFVec2f (player_instance.playerPosition.x, player_instance.playerPosition.y);
 					arNode.position 		= new SFVec3f (coords[0], coords[1], verticalPos);
-					arNode.objectURL		= ''+411;
+					arNode.objectURL		= ''+mp4;
 					arNode.distanceVisibility = -1;
 					arNode.objScale 		= new SFVec3f (0.015, 0.015, 0.015);
 					return arNode;
@@ -3941,7 +3966,7 @@ AT 0 {
 				ES_Descriptor {
 					ES_ID 38
 					muxInfo MuxInfo {
-						fileName "images/assets/red_diploma.png"
+						fileName "images/assets/hand_collect.jpg"
 					}
 				}
 			]
@@ -4073,7 +4098,7 @@ AT 0 {
 				ES_Descriptor {
 					ES_ID 51
 					muxInfo MuxInfo {
-						fileName "images/assets/blank_certificate_nan.png"
+						fileName "images/assets/empty_bag.jpg"
 					}
 				}
 			]
@@ -4200,6 +4225,42 @@ AT 0 {
 				}
 			]
 		}
+		ObjectDescriptor {
+			objectDescriptorID 412
+			esDescr [
+				ES_Descriptor {
+					ES_ID 412
+					muxInfo MuxInfo {
+						fileName "arObjects/loov.mp4"
+					}
+				}
+			]
+		}
+		# #
+		ObjectDescriptor {
+			objectDescriptorID 413
+			esDescr [
+				ES_Descriptor {
+					ES_ID 413
+					muxInfo MuxInfo {
+						fileName "arObjects/loov.mp4"
+					}
+				}
+			]
+		}
+		# #
+		ObjectDescriptor {
+			objectDescriptorID 414
+			esDescr [
+				ES_Descriptor {
+					ES_ID 414
+					muxInfo MuxInfo {
+						fileName "arObjects/loov.mp4"
+					}
+				}
+			]
+		}
+		
 		#
 		# MEDIA TO DETECT (REFERENCE SIGNAL)
 		#
@@ -4269,50 +4330,7 @@ AT 0 {
 				}
 			]
 		}
-		ObjectDescriptor {
-			objectDescriptorID 307
-			esDescr [
-				ES_Descriptor {
-					ES_ID 307
-					muxInfo MuxInfo {
-						fileName "images/refsignal/cdci7.jpg"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 308
-			esDescr [
-				ES_Descriptor {
-					ES_ID 308
-					muxInfo MuxInfo {
-						fileName "images/refsignal/cdci8.jpg"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 309
-			esDescr [
-				ES_Descriptor {
-					ES_ID 309
-					muxInfo MuxInfo {
-						fileName "images/refsignal/cdci9.jpg"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 310
-			esDescr [
-				ES_Descriptor {
-					ES_ID 310
-					muxInfo MuxInfo {
-						fileName "images/refsignal/cdci10.jpg"
-					}
-				}
-			]
-		}
+	
 		#
 		# BREVET
 		#
@@ -4382,50 +4400,7 @@ AT 0 {
 				}
 			]
 		}
-		ObjectDescriptor {
-			objectDescriptorID 407
-			esDescr [
-				ES_Descriptor {
-					ES_ID 407
-					muxInfo MuxInfo {
-						fileName "images/refsignal/brevets/cdci7.jpg"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 408
-			esDescr [
-				ES_Descriptor {
-					ES_ID 408
-					muxInfo MuxInfo {
-						fileName "images/refsignal/brevets/cdci8.jpg"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 409
-			esDescr [
-				ES_Descriptor {
-					ES_ID 409
-					muxInfo MuxInfo {
-						fileName "images/refsignal/brevets/cdci9.jpg"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 410
-			esDescr [
-				ES_Descriptor {
-					ES_ID 410
-					muxInfo MuxInfo {
-						fileName "images/refsignal/brevets/cdci10.jpg"
-					}
-				}
-			]
-		}
+	
 		
 		#
 		# THUMBS (REFERENCE SIGNAL)
@@ -4496,50 +4471,7 @@ AT 0 {
 				}
 			]
 		}
-		ObjectDescriptor {
-			objectDescriptorID 607
-			esDescr [
-				ES_Descriptor {
-					ES_ID 607
-					muxInfo MuxInfo {
-						fileName "images/refsignal/thumbs/cdci7.jpg"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 608
-			esDescr [
-				ES_Descriptor {
-					ES_ID 608
-					muxInfo MuxInfo {
-						fileName "images/refsignal/thumbs/cdci8.jpg"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 609
-			esDescr [
-				ES_Descriptor {
-					ES_ID 609
-					muxInfo MuxInfo {
-						fileName "images/refsignal/thumbs/cdci9.jpg"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 610
-			esDescr [
-				ES_Descriptor {
-					ES_ID 610
-					muxInfo MuxInfo {
-						fileName "images/refsignal/thumbs/cdci10.jpg"
-					}
-				}
-			]
-		}
+		
 		#
 		# THUMBS ON MAP
 		#
@@ -4609,50 +4541,7 @@ AT 0 {
 				}
 			]
 		}
-		ObjectDescriptor {
-			objectDescriptorID 707
-			esDescr [
-				ES_Descriptor {
-					ES_ID 707
-					muxInfo MuxInfo {
-						fileName "images/map/cdci7.png"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 708
-			esDescr [
-				ES_Descriptor {
-					ES_ID 708
-					muxInfo MuxInfo {
-						fileName "images/map/cdci8.png"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 709
-			esDescr [
-				ES_Descriptor {
-					ES_ID 709
-					muxInfo MuxInfo {
-						fileName "images/map/cdci9.png"
-					}
-				}
-			]
-		}
-		ObjectDescriptor {
-			objectDescriptorID 710
-			esDescr [
-				ES_Descriptor {
-					ES_ID 710
-					muxInfo MuxInfo {
-						fileName "images/map/cdci10.png"
-					}
-				}
-			]
-		}
+		
 		#
 		# SOUNDS
 		#
