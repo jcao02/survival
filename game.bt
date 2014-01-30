@@ -93,7 +93,7 @@ PROTO AR_OBJECT [
     eventOut        SFBool          bossWins  
     eventOut        SFString        showDistance
     eventIn    		SFTime      	monsterAttacks
-    eventIn 		SFFloat   		chasePlayer
+    eventIn 		SFTime   		chasePlayer
 ]	
 {
 	Group {
@@ -174,7 +174,7 @@ PROTO AR_OBJECT [
                 eventOut    SFBool      playerIsDead                IS bossWins
                 eventOut    SFString    showDistance                IS showDistance
                 eventIn     SFTime      monsterAttacks				IS monsterAttacks
-                eventIn 	SFFloat		chasePlayer					IS chasePlayer
+                eventIn 	SFTime		chasePlayer					IS chasePlayer
 				
 				url ["javascript:
 					function initialize() {
@@ -302,6 +302,7 @@ PROTO AR_OBJECT [
                                             playerPos.y);
                     # to meters
                     distance *= 1000;
+                    print('playerAround: '+playerAround);
                     if (!playerAround && (distance <= objectPosition[2])) {
 						print (' AR Object: ' + arObjectName + ': player around!');
                         playerAround 	= true;
@@ -334,10 +335,11 @@ PROTO AR_OBJECT [
                 # Moves boss to chase player (NOT DONE YET)
                 #
                 function chasePlayer(){
+                    if (playerPos.x == 0 || playerPos.y == 0) return;
                     move = 0.00001;
                     change = false;
-                	x1 = objectPosition[0];
-                	y1 = objectPosition[1];
+                	x1 = objectPosition.x;
+                	y1 = objectPosition.y;
 
                 	x2 = playerPos.x;
                 	y2 = playerPos.y;
@@ -366,12 +368,10 @@ PROTO AR_OBJECT [
 
                     if (change) {
                         print('[CHASING] MONSTER POS: ' + x1 + ', ' + y1);
-                        setPosition(new SFVec2f(x1,y1));
+                        setPosition(new SFVec3f(x1,y1,objectPosition[2]));
+                        updatePlayerGPS();
                     }
                 }
-
-
-
                 
 				"]
 			}
@@ -2412,7 +2412,6 @@ OrderedGroup {
                         }
                         # For boss to start chasing
                         DEF CHASE_TIMER TimeSensor {
-                            cycleInterval 5
                             loop TRUE
                             enabled FALSE
                         }
@@ -2431,6 +2430,22 @@ OrderedGroup {
                             Material2D_emissiveColor 0 1 0
                             Text_string "INF"
                         }
+
+                        #Damage on interface
+                        DEF DAMAGE_TIMER TimeSensor {
+                            loop FALSE
+                            enabled FALSE
+                        }
+                        DEF DAMAGE_SW Switch {
+                            whichChoice -1
+                            choice [
+                                IMAGE {
+                                    Rectangle_size 480 800
+                                    ImageTexture_url "60"
+                                }
+                            ]
+                        
+                        }
                         
 
 					]
@@ -2441,7 +2456,7 @@ OrderedGroup {
 		}
 		
 		 DEF MONSTER_TIMER TimeSensor {
-				cycleInterval 5
+				cycleInterval 3
 				loop TRUE
 				enabled FALSE
         }
@@ -2569,12 +2584,16 @@ OrderedGroup {
 			eventIn 	SFBool		deactivateMonsterAttack
             eventIn     SFFloat     hideExplosion
             eventIn     SFString    preventPlayer   
+            eventIn     SFTime      hideDamage
             
 			field 		SFNode 		monster_timer   USE MONSTER_TIMER
             field       SFNode      explosion       USE EXPLOSION_SW
             field       SFNode      explosion_timer USE EXPLOSION_TIMER
             field       SFNode      distance_string USE DISTANCE
             field       SFNode      chase_timer     USE CHASE_TIMER
+            field       SFNode      damage_sw       USE DAMAGE_SW
+            field       SFNode      damage_timer    USE DAMAGE_TIMER
+
 
 
 
@@ -2762,10 +2781,13 @@ OrderedGroup {
                 #
                 # Function to decrease player´s life on monster approach
                 #
+                
                 function monsterAttacks(time){
-                	timeInt = parseInt(time.toString());
+
                 	if (play){
                 		print('Monster Attacking...');  
+                        damage_timer.enabled = true;
+                        damage_sw.whichChoice = 0;
 	                    p.hp -= boss.damage;
 
 	                    if (p.hp == 0){
@@ -2775,7 +2797,12 @@ OrderedGroup {
                 	}
                     
                 }
+                
 
+                function hideDamage(){
+                    damage_sw.whichChoice = -1;
+                    damage_timer.enabled = false;
+                }
 
                 function gameResult(winner){
                     # Stop playing
@@ -3080,8 +3107,10 @@ OrderedGroup {
                         arNode = new SFNode ('AR_OBJECT');
 						arNode.name = 'Godzilla';
                         # DONT FORGET TO ADD RANDOM POSITION LATER
-                        x                         = player_instance.playerPosition[0] + 0.000015*4;
-                        y                         = player_instance.playerPosition[1] + 0.000020*4;
+
+                        random = parseInt(Math.random()*4);
+                        x                         = player_instance.playerPosition[0] + 0.000015 * random;
+                        y                         = player_instance.playerPosition[1] + 0.000020 * random;
                         arNode.position[0]        = x;
                         arNode.position[1]        = y;
                         arNode.position[2]        = 5;
@@ -3093,9 +3122,9 @@ OrderedGroup {
 
                         Browser.addRoute(arNode, 'onPlayerAround', thisScript, 'activateMonsterAttack');
 						Browser.addRoute(arNode, 'onPlayerLeft', thisScript, 'deactivateMonsterAttack');
-						Browser.addRoute(monster_timer, 'time', thisScript, 'monsterAttacks');
+						Browser.addRoute(monster_timer, 'cycleTime', thisScript, 'monsterAttacks');
 						Browser.addRoute(arNode, 'showDistance', thisScript, 'preventPlayer');
-						Browser.addRoute(chase_timer, 'fraction_changed', arNode, 'chasePlayer');
+						Browser.addRoute(chase_timer, 'cycleTime', arNode, 'chasePlayer');
 
 						ar_view.addObject 	= arNode;
 						print ('arNode.position = ' + arNode.position);
@@ -3610,6 +3639,7 @@ ROUTE SCRIPT.childRemove TO TAB_VIEW.removeChildren
 ROUTE SHOOT_BUTTON.onClick TO SCRIPT.shootMonster
 ROUTE SCRIPT.gameOver TO SCRIPT.gameResult
 ROUTE EXPLOSION_TIMER.fraction_changed TO SCRIPT.hideExplosion
+ROUTE DAMAGE_TIMER.cycleTime TO SCRIPT.hideDamage
 
 
 ROUTE SHARE_BUTTON.onClick TO SCRIPT.doShare
@@ -4220,6 +4250,17 @@ AT 0 {
 					ES_ID 59
 					muxInfo MuxInfo {
 						fileName "images/assets/fireButton.png"
+					}
+				}
+			]
+		}
+        ObjectDescriptor {
+			objectDescriptorID 60
+			esDescr [
+				ES_Descriptor {
+					ES_ID 60
+					muxInfo MuxInfo {
+						fileName "images/assets/damage.png"
 					}
 				}
 			]
