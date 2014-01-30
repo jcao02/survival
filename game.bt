@@ -1905,14 +1905,14 @@ OrderedGroup {
 					children [
 						TEXT {
 							Transform2D_translation 10 300
-							Text_string "Aide"
-							Layout_size 100 50
+							Text_string "Help"
+							Layout_size 100 100
 							FontStyle_size 30
 							Material2D_emissiveColor $DB5959
 						}
 						TEXT {
 							Transform2D_translation 0 170
-							Text_string "Collectez des brevets lors du forum de la création d'entreprise organisé le 14 juin à la Chambre de commerce et d'industrie de l'Essonne par le réseau CREE. Pour faire ça, vous devez rencontrer des experts. A la fin de ses rencontres, chaque interlocuteur vous montrera une image."
+							Text_string "You have 90 seconds to collect effective guns. After that, you will be attacked and will have to use your guns to survive. You can collect your guns by scanning the images you have, 2 images can represent one gun, don't forget to check the inventory to see your survival kit "
 							Layout_size 430 200
 							FontStyle_size 18
 						}
@@ -1938,22 +1938,17 @@ OrderedGroup {
 						}
 						TEXT {
 							Transform2D_translation 0 -90
-							Text_string "Une fois que vous avez scanné l'image, vous pourrez voir devant vous le brevet que vous pouvez collecter en appuyant sur le bouton « parchemin ». Ensuite vous pouvez aller vers l'expert suivant."
+							Text_string "After scanning the image, if a gun is detected you have to collect it by clicking on the collecting hand"
 							Layout_size 430 200
 							FontStyle_size 18
 						}
 						TEXT {
 							Transform2D_translation 0 -180
-							Text_string "Dès que vous accumulez 5 brevets, votre ID unique va être affiché sur votre écran. Vous devez l'écrire sur les deux papiers qui vous ont été donnés et mettre un des papiers dans l'urne pour le tirage au sort."
+							Text_string "After the 90 seconds, the real danger starts. I monster comes fast in your direction, you have to kill him user your guns, if you don't have any powerfull gun, you'd better gun because he will follow you and kill you otherwise "
 							Layout_size 430 150
 							FontStyle_size 18
 						}
-						TEXT {
-							Transform2D_translation 0 -290
-							Text_string "Vous devez totaliser au moins 5 « brevets » pour participer au tirage final."
-							Layout_size 430 150
-							FontStyle_size 18
-						}
+						
 					]
 				}
 				DEF BACKGROUND_IMAGE IMAGE {
