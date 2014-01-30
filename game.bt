@@ -3613,7 +3613,7 @@ ROUTE EXPLOSION_TIMER.fraction_changed TO SCRIPT.hideExplosion
 
 
 ROUTE SHARE_BUTTON.onClick TO SCRIPT.doShare
-
+ROUTE INTERNET_INSTANCE.internet TO SCRIPT.internetConnection
 AT 0 {
 	UPDATE OD [
 		ObjectDescriptor {
